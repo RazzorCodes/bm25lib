@@ -1,0 +1,7 @@
+{
+  "name": "bm25-tokenize-tests",
+  "version-string": "0.1.0",
+  "dependencies": [
+    "gtest"
+  ]
+}
