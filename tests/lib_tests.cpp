@@ -4,167 +4,249 @@
 #include <string_view>
 #include <vector>
 
-#include "lib.hpp"
+#include "bm25.hpp"
+#include "store/in_memory.hpp"
 
-TEST(LibTests /*unused*/, CountsTotalTokensAndPerTermFrequency /*unused*/)
+// Helper: find score for a specific docId in ranked results (0.0 if absent).
+static double scoreFor(const bm25::RankedResults &results, const bm25::DocumentId id)
 {
-    const auto ingested = ingest_text("The willy quick fox doesn't jump over the lazy brown dog.");
-
-    EXPECT_EQ(ingested.tokenCount, 11U);
-    EXPECT_EQ(ingested.termFrequencies.size(), 10U);
-    EXPECT_EQ(ingested.termFrequencies.at("the"), 2U);
-    EXPECT_EQ(ingested.termFrequencies.at("doesn't"), 1U);
-    EXPECT_EQ(ingested.termFrequencies.at("dog"), 1U);
+    const auto it =
+        std::find_if(results.begin(), results.end(),
+                     [id](const bm25::RankedResult &r) { return r.docId == id; });
+    return it != results.end() ? it->score : 0.0;
 }
 
-TEST(LibTests /*unused*/, MergesRepeatedTokensAfterNormalization /*unused*/)
+TEST(Bm25ServiceTests /*unused*/, IngestChunkCountsTotalTokensAndPerTermFrequency /*unused*/)
 {
-    const auto ingested = ingest_text("Go go GO!");
+    Store::InMemory store;
+    bm25::Bm25 service(store);
 
-    EXPECT_EQ(ingested.tokenCount, 3U);
-    ASSERT_EQ(ingested.termFrequencies.size(), 1U);
-    EXPECT_EQ(ingested.termFrequencies.at("go"), 3U);
+    (void)service.IngestChunk("The willy quick fox doesn't jump over the lazy brown dog.");
+
+    const auto stats = store.Stats();
+    ASSERT_EQ(stats.documentCount, 1U);
+
+    const auto postings = store.FetchPostings({"the"});
+    ASSERT_EQ(postings.size(), 1U);
+    EXPECT_EQ(postings[0].second.tokenCount, 11U);
+    EXPECT_EQ(postings[0].second.termFrequencies.size(), 10U);
+    EXPECT_EQ(postings[0].second.termFrequencies.at("the"), 2U);
+    EXPECT_EQ(postings[0].second.termFrequencies.at("doesn't"), 1U);
+    EXPECT_EQ(postings[0].second.termFrequencies.at("dog"), 1U);
 }
 
-TEST(LibTests /*unused*/, ReturnsEmptyFrequencyMapForDelimiterOnlyInput /*unused*/)
+TEST(Bm25ServiceTests /*unused*/, IngestChunkMergesRepeatedTokensAfterNormalization /*unused*/)
 {
-    const auto ingested = ingest_text("... ,,, ---");
+    Store::InMemory store;
+    bm25::Bm25 service(store);
 
-    EXPECT_EQ(ingested.tokenCount, 0U);
-    EXPECT_TRUE(ingested.termFrequencies.empty());
+    (void)service.IngestChunk("Go go GO!");
+
+    const auto postings = store.FetchPostings({"go"});
+    ASSERT_EQ(postings.size(), 1U);
+    EXPECT_EQ(postings[0].second.tokenCount, 3U);
+    ASSERT_EQ(postings[0].second.termFrequencies.size(), 1U);
+    EXPECT_EQ(postings[0].second.termFrequencies.at("go"), 3U);
 }
 
-TEST(LibTests /*unused*/, IngestMultipleTextsBuildsDocumentFrequenciesAndPerDocumentTfs /*unused*/)
+TEST(Bm25ServiceTests /*unused*/, IngestChunkHandlesDelimiterOnlyInput /*unused*/)
 {
-    const std::vector<std::string_view> texts{"Cat cat dog", "dog bird", "... ,,, ---", "bird CAT"};
+    Store::InMemory store;
+    bm25::Bm25 service(store);
 
-    const auto corpus = ingest_multiple_texts(texts);
+    (void)service.IngestChunk("... ,,, ---");
 
-    EXPECT_DOUBLE_EQ(corpus.avgDocumentLength, 1.75);
-    ASSERT_EQ(corpus.documents.size(), texts.size());
-    ASSERT_EQ(corpus.docFrequencies.size(), 3U);
-    EXPECT_EQ(corpus.docFrequencies.at("cat"), 2U);
-    EXPECT_EQ(corpus.docFrequencies.at("dog"), 2U);
-    EXPECT_EQ(corpus.docFrequencies.at("bird"), 2U);
+    const auto stats = store.Stats();
+    ASSERT_EQ(stats.documentCount, 1U);
 
-    EXPECT_EQ(corpus.documents[0].tokenCount, 3U);
-    EXPECT_EQ(corpus.documents[0].termFrequencies.at("cat"), 2U);
-    EXPECT_EQ(corpus.documents[0].termFrequencies.at("dog"), 1U);
-
-    EXPECT_EQ(corpus.documents[1].tokenCount, 2U);
-    EXPECT_EQ(corpus.documents[1].termFrequencies.at("dog"), 1U);
-    EXPECT_EQ(corpus.documents[1].termFrequencies.at("bird"), 1U);
-
-    EXPECT_EQ(corpus.documents[2].tokenCount, 0U);
-    EXPECT_TRUE(corpus.documents[2].termFrequencies.empty());
-
-    EXPECT_EQ(corpus.documents[3].tokenCount, 2U);
-    EXPECT_EQ(corpus.documents[3].termFrequencies.at("bird"), 1U);
-    EXPECT_EQ(corpus.documents[3].termFrequencies.at("cat"), 1U);
+    // Empty-token docs are in the store but match no term query.
+    const auto postings = store.FetchPostings({"anything"});
+    EXPECT_TRUE(postings.empty());
 }
 
-TEST(LibTests /*unused*/, IngestMultipleTextsHandlesEmptyCorpus /*unused*/)
+TEST(Bm25ServiceTests /*unused*/, IngestChunkIsIdempotentBySameContent /*unused*/)
 {
-    const std::vector<std::string_view> texts{};
+    Store::InMemory store;
+    bm25::Bm25 service(store);
 
-    const auto corpus = ingest_multiple_texts(texts);
+    const auto id1 = service.IngestChunk("hello world");
+    const auto id2 = service.IngestChunk("hello world");
 
-    EXPECT_DOUBLE_EQ(corpus.avgDocumentLength, 0.0);
-    EXPECT_TRUE(corpus.docFrequencies.empty());
-    EXPECT_TRUE(corpus.documents.empty());
+    EXPECT_EQ(id1, id2);
+    EXPECT_EQ(store.Stats().documentCount, 1U);
+    EXPECT_EQ(store.Stats().totalTokens, 2U);
 }
 
-TEST(LibTests /*unused*/, QueryReturnsExpectedBm25ScoresForSingleTerm /*unused*/)
+TEST(Bm25ServiceTests /*unused*/, IngestChunkTracksDocumentFrequencies /*unused*/)
 {
-    const std::vector<std::string_view> texts{"Cat cat dog", "dog bird", "... ,,, ---", "bird CAT"};
+    Store::InMemory store;
+    bm25::Bm25 service(store);
 
-    const auto corpus = ingest_multiple_texts(texts);
-    const auto scores = query("cat", corpus, 1.2, 0.75);
+    (void)service.IngestChunk("cat cat dog");
+    (void)service.IngestChunk("dog bird");
+    (void)service.IngestChunk("... ,,, ---");
+    (void)service.IngestChunk("bird CAT");
 
-    ASSERT_EQ(scores.size(), texts.size());
-    EXPECT_NEAR(scores[0], 0.79364064, 1e-6);
-    EXPECT_DOUBLE_EQ(scores[1], 0.0);
-    EXPECT_DOUBLE_EQ(scores[2], 0.0);
-    EXPECT_NEAR(scores[3], 0.65487525, 1e-6);
+    const auto freqs = store.DocumentFrequencies();
+    ASSERT_EQ(freqs.size(), 3U);
+    EXPECT_EQ(freqs.at("cat"), 2U);
+    EXPECT_EQ(freqs.at("dog"), 2U);
+    EXPECT_EQ(freqs.at("bird"), 2U);
+
+    const auto stats = store.Stats();
+    EXPECT_DOUBLE_EQ(stats.avgDocumentLength, 1.75);
 }
 
-TEST(LibTests /*unused*/, QueryRanksDocumentsByCombinedTermMatches /*unused*/)
+TEST(Bm25ServiceTests /*unused*/, DeleteDocumentRemovesItFromStoreAndStats /*unused*/)
 {
-    const std::vector<std::string_view> texts{"Cat cat dog", "dog bird", "... ,,, ---", "bird CAT"};
+    Store::InMemory store;
+    bm25::Bm25 service(store);
 
-    const auto corpus = ingest_multiple_texts(texts);
-    const auto scores = query("cat bird", corpus, 1.2, 0.75);
+    (void)service.IngestChunk("cat cat dog");
+    const auto idDog = service.IngestChunk("dog bird");
+    (void)service.IngestChunk("bird CAT");
 
-    ASSERT_EQ(scores.size(), texts.size());
-    EXPECT_GT(scores[3], scores[0]);
-    EXPECT_GT(scores[0], scores[1]);
-    EXPECT_GT(scores[1], scores[2]);
+    ASSERT_EQ(store.Stats().documentCount, 3U);
+    service.DeleteDocument(idDog);
+
+    EXPECT_EQ(store.Stats().documentCount, 2U);
+    const auto freqs = store.DocumentFrequencies();
+    EXPECT_EQ(freqs.at("dog"), 1U);  // only in first doc now
+    EXPECT_EQ(freqs.at("bird"), 1U); // only in third doc now
 }
 
-TEST(LibTests /*unused*/, QueryReturnsZeroScoresForUnknownTerms /*unused*/)
+TEST(Bm25ServiceTests /*unused*/, DeleteUnknownDocumentIdIsNoOp /*unused*/)
 {
-    const std::vector<std::string_view> texts{"Cat cat dog", "dog bird"};
+    Store::InMemory store;
+    bm25::Bm25 service(store);
 
-    const auto corpus = ingest_multiple_texts(texts);
-    const auto scores = query("wolf", corpus, 1.2, 0.75);
+    (void)service.IngestChunk("cat");
+    ASSERT_EQ(store.Stats().documentCount, 1U);
 
-    ASSERT_EQ(scores.size(), texts.size());
-    EXPECT_TRUE(
-        std::all_of(scores.begin(), scores.end(), [](const double score) { return score == 0.0; }));
+    EXPECT_NO_THROW(service.DeleteDocument(99999U));
+    EXPECT_EQ(store.Stats().documentCount, 1U);
 }
 
-TEST(LibTests /*unused*/, QueryReturnsZeroScoresForEmptyQuery /*unused*/)
+TEST(Bm25ServiceTests /*unused*/, IndexVersionIncrementsOnEveryWrite /*unused*/)
 {
-    const std::vector<std::string_view> texts{"Cat cat dog", "dog bird"};
+    Store::InMemory store;
+    bm25::Bm25 service(store);
 
-    const auto corpus = ingest_multiple_texts(texts);
-    const auto scores = query("   ... ,,, ---   ", corpus, 1.2, 0.75);
+    const auto v0 = store.Stats().indexVersion;
+    const auto id = service.IngestChunk("cat");
+    const auto v1 = store.Stats().indexVersion;
+    (void)service.IngestChunk("dog");
+    const auto v2 = store.Stats().indexVersion;
+    service.DeleteDocument(id);
+    const auto v3 = store.Stats().indexVersion;
 
-    ASSERT_EQ(scores.size(), texts.size());
-    EXPECT_TRUE(
-        std::all_of(scores.begin(), scores.end(), [](const double score) { return score == 0.0; }));
+    EXPECT_GT(v1, v0);
+    EXPECT_GT(v2, v1);
+    EXPECT_GT(v3, v2);
 }
 
-TEST(LibTests /*unused*/, QueryReturnsEmptyScoresForEmptyCorpus /*unused*/)
+TEST(Bm25ServiceTests /*unused*/, QueryReturnsExpectedBm25ScoresForSingleTerm /*unused*/)
 {
-    const std::vector<std::string_view> texts{};
+    Store::InMemory store;
+    bm25::Bm25 service(store);
 
-    const auto corpus = ingest_multiple_texts(texts);
-    const auto scores = query("cat", corpus, 1.2, 0.75);
+    const auto id0 = service.IngestChunk("Cat cat dog");
+    const auto id1 = service.IngestChunk("dog bird");
+    (void)service.IngestChunk("... ,,, ---");
+    const auto id3 = service.IngestChunk("bird CAT");
 
-    EXPECT_TRUE(scores.empty());
+    const auto result = service.Query("cat", bm25::Bm25Params{1.2, 0.75});
+    ASSERT_TRUE(result.has_value());
+    EXPECT_NEAR(scoreFor(*result, id0), 0.79364064, 1e-6);
+    EXPECT_DOUBLE_EQ(scoreFor(*result, id1), 0.0);
+    EXPECT_NEAR(scoreFor(*result, id3), 0.65487525, 1e-6);
 }
 
-TEST(LibTests /*unused*/, QueryTopKReturnsRankedResultsWithDeterministicTieOrdering /*unused*/)
+TEST(Bm25ServiceTests /*unused*/, QueryRanksDocumentsByCombinedTermMatches /*unused*/)
 {
-    const std::vector<std::string_view> texts{"cat", "cat", "dog"};
+    Store::InMemory store;
+    bm25::Bm25 service(store);
 
-    const auto corpus = ingest_multiple_texts(texts);
-    const auto ranked = query_top_k("cat", corpus, 2);
+    const auto id0 = service.IngestChunk("Cat cat dog");
+    const auto id1 = service.IngestChunk("dog bird");
+    (void)service.IngestChunk("... ,,, ---");
+    const auto id3 = service.IngestChunk("bird CAT");
 
-    ASSERT_EQ(ranked.size(), 2U);
-    EXPECT_EQ(ranked[0].docId, 0U);
-    EXPECT_EQ(ranked[1].docId, 1U);
-    EXPECT_DOUBLE_EQ(ranked[0].score, ranked[1].score);
+    const auto result = service.Query("cat bird", bm25::Bm25Params{1.2, 0.75});
+    ASSERT_TRUE(result.has_value());
+    EXPECT_GT(scoreFor(*result, id3), scoreFor(*result, id0));
+    EXPECT_GT(scoreFor(*result, id0), scoreFor(*result, id1));
 }
 
-TEST(LibTests /*unused*/, QueryReturnsZeroScoresWhenConfigIsInvalid /*unused*/)
+TEST(Bm25ServiceTests /*unused*/, QueryReturnsEmptyForUnknownTerms /*unused*/)
 {
-    const std::vector<std::string_view> texts{"cat cat", "dog"};
-    const auto corpus = ingest_multiple_texts(texts);
+    Store::InMemory store;
+    bm25::Bm25 service(store);
 
-    const auto invalid_k = query_top_k("cat", corpus, 2, Bm25Config{0.0, 0.75});
-    const auto invalid_b_low = query_top_k("cat", corpus, 2, Bm25Config{1.2, -0.1});
-    const auto invalid_b_high = query_top_k("cat", corpus, 2, Bm25Config{1.2, 1.1});
+    (void)service.IngestChunk("Cat cat dog");
+    (void)service.IngestChunk("dog bird");
 
-    ASSERT_EQ(invalid_k.size(), 2U);
-    ASSERT_EQ(invalid_b_low.size(), 2U);
-    ASSERT_EQ(invalid_b_high.size(), 2U);
+    const auto result = service.Query("wolf", bm25::Bm25Params{1.2, 0.75});
+    ASSERT_TRUE(result.has_value());
+    EXPECT_TRUE(result->empty());
+}
 
-    EXPECT_DOUBLE_EQ(invalid_k[0].score, 0.0);
-    EXPECT_DOUBLE_EQ(invalid_k[1].score, 0.0);
-    EXPECT_DOUBLE_EQ(invalid_b_low[0].score, 0.0);
-    EXPECT_DOUBLE_EQ(invalid_b_low[1].score, 0.0);
-    EXPECT_DOUBLE_EQ(invalid_b_high[0].score, 0.0);
-    EXPECT_DOUBLE_EQ(invalid_b_high[1].score, 0.0);
+TEST(Bm25ServiceTests /*unused*/, QueryReturnsEmptyForDelimiterOnlyQuery /*unused*/)
+{
+    Store::InMemory store;
+    bm25::Bm25 service(store);
+
+    (void)service.IngestChunk("Cat cat dog");
+    (void)service.IngestChunk("dog bird");
+
+    const auto result = service.Query("   ... ,,, ---   ", bm25::Bm25Params{1.2, 0.75});
+    ASSERT_TRUE(result.has_value());
+    EXPECT_TRUE(result->empty());
+}
+
+TEST(Bm25ServiceTests /*unused*/, QueryReturnsEmptyForEmptyCorpus /*unused*/)
+{
+    Store::InMemory store;
+    bm25::Bm25 service(store);
+
+    const auto result = service.Query("cat", bm25::Bm25Params{1.2, 0.75});
+    ASSERT_TRUE(result.has_value());
+    EXPECT_TRUE(result->empty());
+}
+
+TEST(Bm25ServiceTests /*unused*/, QueryTopKLimitsAndPreservesRanking /*unused*/)
+{
+    Store::InMemory store;
+    bm25::Bm25 service(store);
+
+    (void)service.IngestChunk("cat here");
+    (void)service.IngestChunk("cat there");
+    (void)service.IngestChunk("dog only");
+
+    const auto result = service.QueryTopK("cat", 2);
+    ASSERT_TRUE(result.has_value());
+    ASSERT_EQ(result->size(), 2U);
+    // Both "cat here" and "cat there" should appear; dog should not.
+    for (const auto &r : *result)
+    {
+        EXPECT_GT(r.score, 0.0);
+    }
+}
+
+TEST(Bm25ServiceTests /*unused*/, QueryReturnsErrorForInvalidParams /*unused*/)
+{
+    Store::InMemory store;
+    bm25::Bm25 service(store);
+
+    (void)service.IngestChunk("cat cat");
+    (void)service.IngestChunk("dog");
+
+    const auto invalidK = service.Query("cat", bm25::Bm25Params{0.0, 0.75});
+    const auto invalidBLow = service.Query("cat", bm25::Bm25Params{1.2, -0.1});
+    const auto invalidBHigh = service.Query("cat", bm25::Bm25Params{1.2, 1.1});
+
+    EXPECT_FALSE(invalidK.has_value());
+    EXPECT_EQ(invalidK.error(), bm25::Bm25Error::InvalidParams);
+    EXPECT_FALSE(invalidBLow.has_value());
+    EXPECT_FALSE(invalidBHigh.has_value());
 }

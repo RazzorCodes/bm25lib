@@ -1,7 +1,7 @@
 find_package(GTest CONFIG REQUIRED)
 include(GoogleTest)
 
-add_executable(string_utils_test string_utils_test.cpp lib_tests.cpp)
+add_executable(string_utils_test string_utils_test.cpp lib_tests.cpp core_tests.cpp)
 
 target_link_libraries(
     string_utils_test

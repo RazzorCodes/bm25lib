@@ -1,24 +1,28 @@
 #pragma once
 
 #include <string>
-#include <unordered_map>
+#include <utility>
 #include <vector>
 
 #include "core/types.hpp"
 
 namespace Store
 {
-using DocFrequencyMap = std::unordered_map<std::string, std::size_t>;
-
 class IAdapter
 {
 public:
     virtual ~IAdapter() = default;
 
-    virtual Core::DocumentId UpsertDocument(const Core::IngestResult &result) = 0;
-    [[nodiscard]] virtual const std::vector<Core::IngestResult> &Documents() const = 0;
-    [[nodiscard]] virtual DocFrequencyMap DocumentFrequencies() const = 0;
-    [[nodiscard]] virtual Core::CorpusStats Stats() const = 0;
+    // Idempotent by id: repeated calls with the same id replace the stored entry.
+    virtual void UpsertDocument(Core::DocumentId id, const Core::IngestResult &result) = 0;
+    virtual void DeleteDocument(Core::DocumentId id) = 0;
     virtual void Clear() = 0;
+
+    [[nodiscard]] virtual Core::CorpusStats Stats() const = 0;
+    [[nodiscard]] virtual Core::DocFrequencyMap DocumentFrequencies() const = 0;
+
+    // Returns only documents that contain at least one of the given terms.
+    [[nodiscard]] virtual std::vector<std::pair<Core::DocumentId, Core::IngestResult>>
+    FetchPostings(const std::vector<std::string> &terms) const = 0;
 };
 } // namespace Store
