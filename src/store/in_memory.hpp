@@ -2,6 +2,7 @@
 
 #include <cstddef>
 #include <string>
+#include <string_view>
 #include <unordered_map>
 #include <utility>
 #include <vector>
@@ -14,54 +15,76 @@ namespace Store
 class InMemory final : public IAdapter
 {
 public:
-    void UpsertDocument(const Core::DocumentId id, const Core::IngestResult &result) override
+    [[nodiscard]] Core::WriteResult UpsertDocument(const std::string_view key,
+                                                    const Core::IngestResult &result) override
     {
-        const auto existing = docs.find(id);
-        if (existing != docs.end())
+        const auto keyIt = keyToId.find(std::string(key));
+
+        if (keyIt != keyToId.end())
         {
-            // Remove old document's contributions before replacing.
-            totalTokens -= existing->second.tokenCount;
-            for (const auto &[term, _] : existing->second.termFrequencies)
+            // Update path: remove old document's contributions before replacing.
+            const auto id = keyIt->second;
+            const auto &old = docs.at(id);
+            totalTokens -= old.tokenCount;
+            for (const auto &[term, _] : old.termFrequencies)
             {
                 if (--spread[term] == 0)
                 {
                     spread.erase(term);
                 }
             }
+            docs[id] = result;
+            totalTokens += result.tokenCount;
+            for (const auto &[term, _] : result.termFrequencies)
+            {
+                ++spread[term];
+            }
+            ++indexVersion;
+            return {id, Core::WriteOutcome::Updated};
         }
 
-        docs[id] = result;
+        // Insert path: assign a new id.
+        const auto id = nextId++;
+        keyToId.emplace(key, id);
+        idToKey.emplace(id, key);
+        docs.emplace(id, result);
         totalTokens += result.tokenCount;
         for (const auto &[term, _] : result.termFrequencies)
         {
             ++spread[term];
         }
         ++indexVersion;
+        return {id, Core::WriteOutcome::Inserted};
     }
 
-    void DeleteDocument(const Core::DocumentId id) override
+    bool DeleteDocument(const Core::DocumentId id) override
     {
-        const auto it = docs.find(id);
-        if (it == docs.end())
+        const auto docIt = docs.find(id);
+        if (docIt == docs.end())
         {
-            return;
+            return false;
         }
 
-        totalTokens -= it->second.tokenCount;
-        for (const auto &[term, _] : it->second.termFrequencies)
+        totalTokens -= docIt->second.tokenCount;
+        for (const auto &[term, _] : docIt->second.termFrequencies)
         {
             if (--spread[term] == 0)
             {
                 spread.erase(term);
             }
         }
-        docs.erase(it);
+        keyToId.erase(idToKey.at(id));
+        idToKey.erase(id);
+        docs.erase(docIt);
         ++indexVersion;
+        return true;
     }
 
     void Clear() override
     {
         docs.clear();
+        keyToId.clear();
+        idToKey.clear();
         spread.clear();
         totalTokens = 0;
         ++indexVersion;
@@ -104,9 +127,12 @@ public:
     }
 
 private:
+    std::unordered_map<std::string, Core::DocumentId> keyToId;
+    std::unordered_map<Core::DocumentId, std::string> idToKey;
     std::unordered_map<Core::DocumentId, Core::IngestResult> docs;
     Core::DocFrequencyMap spread;
     std::size_t totalTokens = 0;
+    Core::DocumentId nextId = 0;
     std::uint64_t indexVersion = 0;
 };
 } // namespace Store

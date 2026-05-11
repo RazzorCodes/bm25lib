@@ -1,7 +1,5 @@
 #include "bm25.hpp"
 
-#include <functional>
-
 #include "core/ingester.hpp"
 #include "core/ranker.hpp"
 #include "core/scorer.hpp"
@@ -11,16 +9,19 @@ namespace bm25
 {
 Bm25::Bm25(Store::IAdapter &dataStore) : store(&dataStore) {}
 
-DocumentId Bm25::IngestChunk(const std::string_view chunk)
+WriteResult Bm25::IngestChunk(const std::string_view key, const std::string_view text)
 {
-    const auto id = std::hash<std::string_view>{}(chunk);
-    store->UpsertDocument(id, Core::Ingest(chunk));
-    return id;
+    return store->UpsertDocument(key, Core::Ingest(text));
 }
 
-void Bm25::DeleteDocument(const DocumentId id)
+bool Bm25::DeleteDocument(const DocumentId id)
 {
-    store->DeleteDocument(id);
+    return store->DeleteDocument(id);
+}
+
+CorpusStats Bm25::Stats() const
+{
+    return store->Stats();
 }
 
 std::expected<RankedResults, Bm25Error>

@@ -21,7 +21,7 @@ target_include_directories(
         ${CMAKE_CURRENT_SOURCE_DIR}/src
 )
 
+include(CTest)
 if(BUILD_TESTING)
-    include(CTest)
     add_subdirectory(tests)
 endif()

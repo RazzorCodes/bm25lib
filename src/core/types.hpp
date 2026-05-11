@@ -13,9 +13,32 @@ using TermFrequency = std::size_t;
 using TermMap = std::unordered_map<std::string, TermFrequency>;
 using DocFrequencyMap = std::unordered_map<std::string, std::size_t>;
 
+// Error taxonomy.
+//
+// Recoverable — caller error; fix the arguments and retry.
+//   InvalidParams: k <= 0 or b outside [0, 1].
+//
+// Fatal — internal invariant violated; the adapter is in an undefined state.
+//   InternalError: reserved for storage-backed adapters (Milestone 1+).
+//   Not reachable with the in-memory adapter.
 enum class Bm25Error
 {
     InvalidParams,
+    InternalError,
+};
+
+// Outcome of a write (insert or update) operation.
+enum class WriteOutcome
+{
+    Inserted, // key was new; a fresh DocumentId was assigned
+    Updated,  // key already existed; the document was replaced in-place
+};
+
+// Return value of IngestChunk.
+struct WriteResult
+{
+    DocumentId docId = 0;
+    WriteOutcome outcome = WriteOutcome::Inserted;
 };
 
 struct IngestResult

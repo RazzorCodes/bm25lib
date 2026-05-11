@@ -1,6 +1,7 @@
 #pragma once
 
 #include <string>
+#include <string_view>
 #include <utility>
 #include <vector>
 
@@ -13,9 +14,17 @@ class IAdapter
 public:
     virtual ~IAdapter() = default;
 
-    // Idempotent by id: repeated calls with the same id replace the stored entry.
-    virtual void UpsertDocument(Core::DocumentId id, const Core::IngestResult &result) = 0;
-    virtual void DeleteDocument(Core::DocumentId id) = 0;
+    // Upsert by caller-supplied key.
+    //   - New key: creates a new document, returns WriteOutcome::Inserted.
+    //   - Existing key: replaces the stored document, returns WriteOutcome::Updated.
+    // Corpus stats (df, avgdl, documentCount) are kept consistent on both paths.
+    [[nodiscard]] virtual Core::WriteResult UpsertDocument(std::string_view key,
+                                                           const Core::IngestResult &result) = 0;
+
+    // Removes the document identified by id.
+    // Returns true if the document existed and was removed, false if id was not found.
+    virtual bool DeleteDocument(Core::DocumentId id) = 0;
+
     virtual void Clear() = 0;
 
     [[nodiscard]] virtual Core::CorpusStats Stats() const = 0;
