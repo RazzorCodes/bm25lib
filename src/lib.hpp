@@ -1,112 +1,249 @@
 #pragma once
 
-#include <cstddef>
+#include <algorithm>
 #include <cmath>
+#include <cstddef>
 #include <string>
 #include <string_view>
-#include <tuple>
 #include <unordered_map>
 #include <utility>
 #include <vector>
 
+#include "core/ingestion.hpp"
+#include "core/types.hpp"
+#include "store/in_memory.hpp"
 #include "utils/string_utils.hpp"
 
-using term_frequency_map = std::unordered_map<std::string, std::size_t>;
-using doc_frequency_map = std::unordered_map<std::string, std::size_t>;
-using ingest_result = std::tuple<std::size_t, term_frequency_map>;
-using complete_result = std::tuple<double, doc_frequency_map, std::vector<ingest_result>>;
+using term_frequency_map = Core::TermMap;
+using doc_frequency_map = Store::DocFrequencyMap;
 using score_vector = std::vector<double>;
 
-inline ingest_result ingest_text(std::string_view text)
+struct IngestResult
 {
-    std::size_t size = 0;
-    term_frequency_map tf;
+    std::size_t tokenCount = 0;
+    term_frequency_map termFrequencies;
+};
 
-    tokenize(text, [&size, &tf](std::string token) {
-        ++size;
-        ++tf[std::move(token)];
-    });
-
-    return {size, std::move(tf)};
-}
-
-inline void add_to_df_from_tf(const term_frequency_map& tf, doc_frequency_map& df)
+struct CompleteResult
 {
-    for (const auto& entry : tf)
+    double avgDocumentLength = 0.0;
+    doc_frequency_map docFrequencies;
+    std::vector<IngestResult> documents;
+};
+
+struct RankedResult
+{
+    Core::DocumentId docId = 0;
+    double score = 0.0;
+};
+
+using RankedResults = std::vector<RankedResult>;
+
+struct Bm25Config
+{
+    double k = 1.2;
+    double b = 0.75;
+
+    static Bm25Config defaults()
     {
-        ++df[entry.first];
-    }
-}
-
-inline complete_result ingest_multiple_texts(const std::vector<std::string_view>& texts)
-{
-    std::size_t dsum = 0;
-    doc_frequency_map df;
-    std::vector<ingest_result> tfs;
-    tfs.reserve(texts.size());
-
-    for (const auto text : texts)
-    {
-        tfs.push_back(ingest_text(text));
-        dsum += std::get<0>(tfs.back());
-        add_to_df_from_tf(std::get<1>(tfs.back()), df);
+        return {};
     }
 
-    auto avgdl = texts.size() == 0 ? 0.0f : (double)dsum / texts.size();
-
-    return {avgdl, df, tfs};
-}
-
-inline score_vector query(const std::string_view q, const complete_result& res, const double k, const double b)
-{
-    term_frequency_map qt;
-    tokenize(q, [&qt](std::string token) {
-        ++qt[std::move(token)];
-    });
-
-    const auto avgdl = std::get<0>(res);
-    const auto& vocab = std::get<1>(res);
-    const auto& doc_res = std::get<2>(res);
-    score_vector scores(doc_res.size(), 0.0);
-
-    if (qt.empty() || doc_res.empty())
+    [[nodiscard]] bool valid() const
     {
+        return k > 0.0 && b >= 0.0 && b <= 1.0;
+    }
+};
+
+class Analyzer
+{
+public:
+    [[nodiscard]] static IngestResult ingest_text(const std::string_view text)
+    {
+        const auto res = Core::Ingest(text);
+        return {res.tokenCount, res.termFrequencies};
+    }
+};
+
+class Ingester
+{
+public:
+    [[nodiscard]] static CompleteResult
+    ingest_multiple_texts(const std::vector<std::string_view> &texts)
+    {
+        Store::InMemory store;
+
+        for (const auto text : texts)
+        {
+            store.UpsertDocument(Core::Ingest(text));
+        }
+
+        CompleteResult result;
+        const auto stats = store.Stats();
+        result.avgDocumentLength = stats.avgDocumentLength;
+        result.docFrequencies = store.DocumentFrequencies();
+
+        const auto &docs = store.Documents();
+        result.documents.reserve(docs.size());
+        for (const auto &doc : docs)
+        {
+            result.documents.push_back({doc.tokenCount, doc.termFrequencies});
+        }
+
+        return result;
+    }
+};
+
+class Scorer
+{
+public:
+    [[nodiscard]] static score_vector query_scores(const std::string_view q,
+                                                   const CompleteResult &res,
+                                                   const Bm25Config config = Bm25Config::defaults())
+    {
+        if (!config.valid())
+        {
+            return score_vector(res.documents.size(), 0.0);
+        }
+
+        term_frequency_map query_terms;
+        tokenize(q, [&query_terms](const std::string &token) { ++query_terms[token]; });
+
+        score_vector scores(res.documents.size(), 0.0);
+        if (query_terms.empty() || res.documents.empty())
+        {
+            return scores;
+        }
+
+        for (const auto &[term, query_tf] : query_terms)
+        {
+            const auto it = res.docFrequencies.find(term);
+            if (it == res.docFrequencies.end())
+            {
+                continue;
+            }
+
+            const auto doc_count = static_cast<double>(res.documents.size());
+            const auto doc_frequency = static_cast<double>(it->second);
+            const auto idf =
+                std::log(1.0 + ((doc_count - doc_frequency + 0.5) / (doc_frequency + 0.5)));
+
+            for (std::size_t doc_idx = 0; doc_idx < res.documents.size(); ++doc_idx)
+            {
+                const auto &doc = res.documents[doc_idx];
+                const auto tf_it = doc.termFrequencies.find(term);
+                if (tf_it == doc.termFrequencies.end())
+                {
+                    continue;
+                }
+
+                const auto tf_td = static_cast<double>(tf_it->second);
+                const auto length_factor = res.avgDocumentLength == 0.0
+                                               ? 1.0
+                                               : (1.0 - config.b +
+                                                  (config.b * static_cast<double>(doc.tokenCount) /
+                                                   res.avgDocumentLength));
+                const auto den = tf_td + (config.k * length_factor);
+                if (den == 0.0)
+                {
+                    continue;
+                }
+
+                const auto tf_norm = tf_td * (config.k + 1.0) / den;
+                scores[doc_idx] += static_cast<double>(query_tf) * idf * tf_norm;
+            }
+        }
+
         return scores;
     }
+};
 
-    for (const auto& [term, query_tf] : qt)
+class ResultRanker
+{
+public:
+    [[nodiscard]] static RankedResults rank(const score_vector &scores, std::size_t top_k = 0)
     {
-        const auto it = vocab.find(term);
-        if (it == vocab.end())
+        RankedResults ranked;
+        ranked.reserve(scores.size());
+        for (std::size_t docId = 0; docId < scores.size(); ++docId)
         {
-            continue;
+            ranked.push_back({docId, scores[docId]});
         }
 
-        const auto doc_count = static_cast<double>(doc_res.size());
-        const auto doc_frequency = static_cast<double>(it->second);
-        const auto idf = std::log(1.0 + (doc_count - doc_frequency + 0.5) / (doc_frequency + 0.5));
+        std::sort(ranked.begin(), ranked.end(),
+                  [](const RankedResult &lhs, const RankedResult &rhs) {
+                      if (lhs.score != rhs.score)
+                      {
+                          return lhs.score > rhs.score;
+                      }
 
-        for (std::size_t doc_idx = 0; doc_idx < doc_res.size(); ++doc_idx)
+                      return lhs.docId < rhs.docId;
+                  });
+
+        if (top_k > 0 && top_k < ranked.size())
         {
-            const auto& [dl, doc_tf] = doc_res[doc_idx];
-            const auto tf_it = doc_tf.find(term);
-            if (tf_it == doc_tf.end())
-            {
-                continue;
-            }
-
-            const auto tf_td = static_cast<double>(tf_it->second);
-            const auto length_factor = avgdl == 0.0 ? 1.0 : (1.0 - b + b * static_cast<double>(dl) / avgdl);
-            const auto den = tf_td + k * length_factor;
-            if (den == 0.0)
-            {
-                continue;
-            }
-
-            const auto tf_norm = tf_td * (k + 1.0) / den;
-            scores[doc_idx] += static_cast<double>(query_tf) * idf * tf_norm;
+            ranked.resize(top_k);
         }
+
+        return ranked;
+    }
+};
+
+class Bm25Service
+{
+public:
+    explicit Bm25Service(Bm25Config config = Bm25Config::defaults()) : config(config) {}
+
+    [[nodiscard]] static IngestResult ingest_text(const std::string_view text)
+    {
+        return Analyzer::ingest_text(text);
     }
 
-    return scores;
+    [[nodiscard]] static CompleteResult
+    ingest_multiple_texts(const std::vector<std::string_view> &texts)
+    {
+        return Ingester::ingest_multiple_texts(texts);
+    }
+
+    [[nodiscard]] score_vector query_scores(const std::string_view q,
+                                            const CompleteResult &corpus) const
+    {
+        return Scorer::query_scores(q, corpus, config);
+    }
+
+    [[nodiscard]] RankedResults query_top_k(const std::string_view q, const CompleteResult &corpus,
+                                            const std::size_t top_k = 0) const
+    {
+        return ResultRanker::rank(query_scores(q, corpus), top_k);
+    }
+
+private:
+    Bm25Config config;
+    Analyzer analyzer;
+    Ingester ingester;
+    Scorer scorer;
+    ResultRanker ranker;
+};
+
+inline IngestResult ingest_text(const std::string_view text)
+{
+    return Analyzer::ingest_text(text);
+}
+
+inline CompleteResult ingest_multiple_texts(const std::vector<std::string_view> &texts)
+{
+    return Ingester::ingest_multiple_texts(texts);
+}
+
+inline score_vector query(const std::string_view q, const CompleteResult &res, const double k,
+                          const double b)
+{
+    return Scorer::query_scores(q, res, Bm25Config{k, b});
+}
+
+inline RankedResults query_top_k(const std::string_view q, const CompleteResult &res,
+                                 const std::size_t top_k,
+                                 const Bm25Config config = Bm25Config::defaults())
+{
+    return ResultRanker::rank(Scorer::query_scores(q, res, config), top_k);
 }
