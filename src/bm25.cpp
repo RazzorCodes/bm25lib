@@ -24,8 +24,8 @@ CorpusStats Bm25::Stats() const
     return store->Stats();
 }
 
-std::expected<RankedResults, Bm25Error>
-Bm25::Query(const std::string_view query, const Bm25Params params) const
+std::expected<RankedResults, Bm25Error> Bm25::Query(const std::string_view query,
+                                                    const Bm25Params params) const
 {
     if (!params.IsValid())
     {
@@ -69,8 +69,7 @@ Bm25::Query(const std::string_view query, const Bm25Params params) const
 }
 
 std::expected<RankedResults, Bm25Error>
-Bm25::QueryTopK(const std::string_view query, const std::size_t topK,
-                const Bm25Params params) const
+Bm25::QueryTopK(const std::string_view query, const std::size_t topK, const Bm25Params params) const
 {
     auto all = Query(query, params);
     if (!all)

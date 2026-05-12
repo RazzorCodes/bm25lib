@@ -16,6 +16,5 @@ namespace Core
 [[nodiscard]] std::expected<RankedResults, Bm25Error>
 ScoreQuery(const TermMap &queryTerms,
            const std::vector<std::pair<DocumentId, IngestResult>> &postings,
-           const CorpusStats &stats, const DocFrequencyMap &docFrequencies,
-           Bm25Params params = {});
+           const CorpusStats &stats, const DocFrequencyMap &docFrequencies, Bm25Params params = {});
 } // namespace Core

@@ -40,8 +40,8 @@ public:
     // Returns all matching documents sorted by score descending.
     // Unknown terms and non-token queries return an empty result (not an error).
     // Returns Bm25Error::InvalidParams (recoverable) if params.IsValid() is false.
-    [[nodiscard]] std::expected<RankedResults, Bm25Error>
-    Query(std::string_view query, Bm25Params params = {}) const;
+    [[nodiscard]] std::expected<RankedResults, Bm25Error> Query(std::string_view query,
+                                                                Bm25Params params = {}) const;
 
     // Like Query but limits output to topK results (topK == 0 means no limit).
     [[nodiscard]] std::expected<RankedResults, Bm25Error>

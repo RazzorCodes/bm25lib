@@ -6,7 +6,7 @@ namespace Core
 {
 RankedResults RankScores(RankedResults scored, const std::size_t topK)
 {
-    std::sort(scored.begin(), scored.end(), [](const RankedResult &lhs, const RankedResult &rhs) {
+    std::ranges::sort(scored, [](const RankedResult &lhs, const RankedResult &rhs) {
         if (lhs.score != rhs.score)
         {
             return lhs.score > rhs.score;

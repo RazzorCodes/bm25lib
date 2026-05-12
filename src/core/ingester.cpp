@@ -16,6 +16,6 @@ IngestResult Ingest(const std::string_view text)
         ++termFrequencies[token];
     });
 
-    return {tokenCount, std::move(termFrequencies)};
+    return {.tokenCount = tokenCount, .termFrequencies = std::move(termFrequencies)};
 }
 } // namespace Core

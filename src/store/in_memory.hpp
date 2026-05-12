@@ -16,7 +16,7 @@ class InMemory final : public IAdapter
 {
 public:
     [[nodiscard]] Core::WriteResult UpsertDocument(const std::string_view key,
-                                                    const Core::IngestResult &result) override
+                                                   const Core::IngestResult &result) override
     {
         const auto keyIt = keyToId.find(std::string(key));
 

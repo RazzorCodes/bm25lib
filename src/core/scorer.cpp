@@ -7,8 +7,7 @@ namespace Core
 std::expected<RankedResults, Bm25Error>
 ScoreQuery(const TermMap &queryTerms,
            const std::vector<std::pair<DocumentId, IngestResult>> &postings,
-           const CorpusStats &stats, const DocFrequencyMap &docFrequencies,
-           const Bm25Params params)
+           const CorpusStats &stats, const DocFrequencyMap &docFrequencies, const Bm25Params params)
 {
     if (!params.IsValid())
     {
@@ -35,24 +34,21 @@ ScoreQuery(const TermMap &queryTerms,
                 continue;
             }
 
-            const auto tf = static_cast<double>(
-                [&]() -> std::size_t {
-                    const auto tfIt = doc.termFrequencies.find(term);
-                    return tfIt != doc.termFrequencies.end() ? tfIt->second : 0;
-                }());
+            const auto tf = static_cast<double>([&]() -> std::size_t {
+                const auto tfIt = doc.termFrequencies.find(term);
+                return tfIt != doc.termFrequencies.end() ? tfIt->second : 0;
+            }());
             if (tf == 0.0)
             {
                 continue;
             }
 
             const auto df = static_cast<double>(dfIt->second);
-            const auto idf =
-                std::log(1.0 + ((docCount - df + 0.5) / (df + 0.5)));
+            const auto idf = std::log(1.0 + ((docCount - df + 0.5) / (df + 0.5)));
             const auto lengthFactor =
                 avgdl == 0.0
                     ? 1.0
-                    : (1.0 - params.b +
-                       (params.b * static_cast<double>(doc.tokenCount) / avgdl));
+                    : (1.0 - params.b + (params.b * static_cast<double>(doc.tokenCount) / avgdl));
             const auto den = tf + (params.k * lengthFactor);
             if (den == 0.0)
             {

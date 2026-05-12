@@ -85,22 +85,21 @@ public:
     {
         Transaction txn(*this);
         Exec("DELETE FROM documents;");
-        auto statement = Prepare(
-            "UPDATE store_state SET total_tokens = 0, index_version = index_version + 1 "
-            "WHERE singleton = 1;");
+        auto statement =
+            Prepare("UPDATE store_state SET total_tokens = 0, index_version = index_version + 1 "
+                    "WHERE singleton = 1;");
         StepDone(statement.get(), "clear store state");
         txn.Commit();
     }
 
     [[nodiscard]] Core::CorpusStats Stats() const override
     {
-        auto statement = Prepare(
-            "SELECT "
-            "    (SELECT COUNT(*) FROM documents), "
-            "    total_tokens, "
-            "    index_version "
-            "FROM store_state "
-            "WHERE singleton = 1;");
+        auto statement = Prepare("SELECT "
+                                 "    (SELECT COUNT(*) FROM documents), "
+                                 "    total_tokens, "
+                                 "    index_version "
+                                 "FROM store_state "
+                                 "WHERE singleton = 1;");
 
         if (sqlite3_step(statement.get()) != SQLITE_ROW)
         {
@@ -108,7 +107,8 @@ public:
         }
 
         Core::CorpusStats stats;
-        stats.documentCount = FromSqlSize(sqlite3_column_int64(statement.get(), 0), "document count");
+        stats.documentCount =
+            FromSqlSize(sqlite3_column_int64(statement.get(), 0), "document count");
         stats.totalTokens = FromSqlSize(sqlite3_column_int64(statement.get(), 1), "total tokens");
         stats.indexVersion =
             FromSqlUint64(sqlite3_column_int64(statement.get(), 2), "index version");
@@ -121,8 +121,7 @@ public:
 
     [[nodiscard]] Core::DocFrequencyMap DocumentFrequencies() const override
     {
-        auto statement =
-            Prepare("SELECT term, COUNT(*) FROM term_frequencies GROUP BY term;");
+        auto statement = Prepare("SELECT term, COUNT(*) FROM term_frequencies GROUP BY term;");
 
         Core::DocFrequencyMap frequencies;
         while (true)
@@ -143,9 +142,9 @@ public:
                 throw std::runtime_error("sqlite store: term frequency row had null term");
             }
 
-            frequencies.emplace(reinterpret_cast<const char *>(termText),
-                                FromSqlSize(sqlite3_column_int64(statement.get(), 1),
-                                            "document frequency"));
+            frequencies.emplace(
+                reinterpret_cast<const char *>(termText),
+                FromSqlSize(sqlite3_column_int64(statement.get(), 1), "document frequency"));
         }
 
         return frequencies;
@@ -161,20 +160,19 @@ public:
 
         const auto placeholders = MakePlaceholders(terms.size());
         const auto joinedPlaceholders = MakePlaceholders(terms.size(), terms.size() + 1);
-        auto statement = Prepare(
-            "SELECT docs.id, docs.token_count, tf.term, tf.frequency "
-            "FROM documents AS docs "
-            "JOIN ("
-            "    SELECT DISTINCT document_id "
-            "    FROM term_frequencies "
-            "    WHERE term IN (" +
-            placeholders +
-            ")) AS matched ON matched.document_id = docs.id "
-            "LEFT JOIN term_frequencies AS tf "
-            "    ON tf.document_id = docs.id AND tf.term IN (" +
-            joinedPlaceholders +
-            ") "
-            "ORDER BY docs.id, tf.term;");
+        auto statement = Prepare("SELECT docs.id, docs.token_count, tf.term, tf.frequency "
+                                 "FROM documents AS docs "
+                                 "JOIN ("
+                                 "    SELECT DISTINCT document_id "
+                                 "    FROM term_frequencies "
+                                 "    WHERE term IN (" +
+                                 placeholders +
+                                 ")) AS matched ON matched.document_id = docs.id "
+                                 "LEFT JOIN term_frequencies AS tf "
+                                 "    ON tf.document_id = docs.id AND tf.term IN (" +
+                                 joinedPlaceholders +
+                                 ") "
+                                 "ORDER BY docs.id, tf.term;");
 
         BindTerms(statement.get(), terms, 1);
         BindTerms(statement.get(), terms, terms.size() + 1);
@@ -201,12 +199,11 @@ public:
                 currentId = docId;
                 haveCurrent = true;
                 postings.emplace_back(
-                    currentId,
-                    Core::IngestResult{
-                        .tokenCount =
-                            FromSqlSize(sqlite3_column_int64(statement.get(), 1), "token count"),
-                        .termFrequencies = {},
-                    });
+                    currentId, Core::IngestResult{
+                                   .tokenCount = FromSqlSize(
+                                       sqlite3_column_int64(statement.get(), 1), "token count"),
+                                   .termFrequencies = {},
+                               });
             }
 
             const auto *termText = sqlite3_column_text(statement.get(), 2);
@@ -268,10 +265,9 @@ private:
 
     void Open()
     {
-        const int rc = sqlite3_open_v2(path_.c_str(), &db_,
-                                       SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE |
-                                           SQLITE_OPEN_FULLMUTEX,
-                                       nullptr);
+        const int rc = sqlite3_open_v2(
+            path_.c_str(), &db_, SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE | SQLITE_OPEN_FULLMUTEX,
+            nullptr);
         if (rc != SQLITE_OK)
         {
             const std::string message =
@@ -293,38 +289,34 @@ private:
 
     void InitializeSchema()
     {
-        Exec(
-            "CREATE TABLE IF NOT EXISTS store_state ("
-            "    singleton INTEGER PRIMARY KEY CHECK (singleton = 1),"
-            "    total_tokens INTEGER NOT NULL DEFAULT 0,"
-            "    index_version INTEGER NOT NULL DEFAULT 0"
-            ");");
-        Exec(
-            "INSERT INTO store_state (singleton, total_tokens, index_version) "
-            "VALUES (1, 0, 0) "
-            "ON CONFLICT(singleton) DO NOTHING;");
-        Exec(
-            "CREATE TABLE IF NOT EXISTS documents ("
-            "    id INTEGER PRIMARY KEY AUTOINCREMENT,"
-            "    doc_key TEXT NOT NULL UNIQUE,"
-            "    token_count INTEGER NOT NULL"
-            ");");
-        Exec(
-            "CREATE TABLE IF NOT EXISTS term_frequencies ("
-            "    document_id INTEGER NOT NULL,"
-            "    term TEXT NOT NULL,"
-            "    frequency INTEGER NOT NULL,"
-            "    PRIMARY KEY (document_id, term),"
-            "    FOREIGN KEY (document_id) REFERENCES documents(id) ON DELETE CASCADE"
-            ");");
+        Exec("CREATE TABLE IF NOT EXISTS store_state ("
+             "    singleton INTEGER PRIMARY KEY CHECK (singleton = 1),"
+             "    total_tokens INTEGER NOT NULL DEFAULT 0,"
+             "    index_version INTEGER NOT NULL DEFAULT 0"
+             ");");
+        Exec("INSERT INTO store_state (singleton, total_tokens, index_version) "
+             "VALUES (1, 0, 0) "
+             "ON CONFLICT(singleton) DO NOTHING;");
+        Exec("CREATE TABLE IF NOT EXISTS documents ("
+             "    id INTEGER PRIMARY KEY AUTOINCREMENT,"
+             "    doc_key TEXT NOT NULL UNIQUE,"
+             "    token_count INTEGER NOT NULL"
+             ");");
+        Exec("CREATE TABLE IF NOT EXISTS term_frequencies ("
+             "    document_id INTEGER NOT NULL,"
+             "    term TEXT NOT NULL,"
+             "    frequency INTEGER NOT NULL,"
+             "    PRIMARY KEY (document_id, term),"
+             "    FOREIGN KEY (document_id) REFERENCES documents(id) ON DELETE CASCADE"
+             ");");
         Exec("CREATE INDEX IF NOT EXISTS idx_term_frequencies_term ON term_frequencies(term);");
     }
 
     [[nodiscard]] StatementPtr Prepare(const std::string &sql) const
     {
         sqlite3_stmt *statement = nullptr;
-        const int rc = sqlite3_prepare_v2(db_, sql.c_str(), static_cast<int>(sql.size()),
-                                          &statement, nullptr);
+        const int rc =
+            sqlite3_prepare_v2(db_, sql.c_str(), static_cast<int>(sql.size()), &statement, nullptr);
         if (rc != SQLITE_OK)
         {
             ThrowLastError("prepare statement");
@@ -338,8 +330,7 @@ private:
         const int rc = sqlite3_exec(db_, sql, nullptr, nullptr, &errorMessage);
         if (rc != SQLITE_OK)
         {
-            std::string message =
-                errorMessage != nullptr ? errorMessage : sqlite3_errmsg(db_);
+            std::string message = errorMessage != nullptr ? errorMessage : sqlite3_errmsg(db_);
             if (errorMessage != nullptr)
             {
                 sqlite3_free(errorMessage);
@@ -377,8 +368,7 @@ private:
     [[nodiscard]] std::optional<std::pair<Core::DocumentId, sqlite3_int64>>
     FindDocumentByKey(const std::string_view key) const
     {
-        auto statement =
-            Prepare("SELECT id, token_count FROM documents WHERE doc_key = ?1;");
+        auto statement = Prepare("SELECT id, token_count FROM documents WHERE doc_key = ?1;");
         BindText(statement.get(), 1, key);
 
         const int rc = sqlite3_step(statement.get());
@@ -391,15 +381,13 @@ private:
             ThrowLastError("lookup document by key");
         }
 
-        return std::make_pair(
-            FromSqlSize(sqlite3_column_int64(statement.get(), 0), "document id"),
-            sqlite3_column_int64(statement.get(), 1));
+        return std::make_pair(FromSqlSize(sqlite3_column_int64(statement.get(), 0), "document id"),
+                              sqlite3_column_int64(statement.get(), 1));
     }
 
     [[nodiscard]] std::optional<sqlite3_int64> FindTokenCountById(const Core::DocumentId id) const
     {
-        auto statement =
-            Prepare("SELECT token_count FROM documents WHERE id = ?1;");
+        auto statement = Prepare("SELECT token_count FROM documents WHERE id = ?1;");
         BindInt64(statement.get(), 1, ToSqlInt(id));
 
         const int rc = sqlite3_step(statement.get());
@@ -418,8 +406,7 @@ private:
     [[nodiscard]] Core::DocumentId InsertDocument(const std::string_view key,
                                                   const std::size_t tokenCount)
     {
-        auto statement =
-            Prepare("INSERT INTO documents (doc_key, token_count) VALUES (?1, ?2);");
+        auto statement = Prepare("INSERT INTO documents (doc_key, token_count) VALUES (?1, ?2);");
         BindText(statement.get(), 1, key);
         BindInt64(statement.get(), 2, ToSqlInt(tokenCount));
         StepDone(statement.get(), "insert document");
@@ -428,14 +415,12 @@ private:
 
     void UpdateDocument(const Core::DocumentId id, const Core::IngestResult &result)
     {
-        auto updateStatement =
-            Prepare("UPDATE documents SET token_count = ?2 WHERE id = ?1;");
+        auto updateStatement = Prepare("UPDATE documents SET token_count = ?2 WHERE id = ?1;");
         BindInt64(updateStatement.get(), 1, ToSqlInt(id));
         BindInt64(updateStatement.get(), 2, ToSqlInt(result.tokenCount));
         StepDone(updateStatement.get(), "update document");
 
-        auto deleteTerms =
-            Prepare("DELETE FROM term_frequencies WHERE document_id = ?1;");
+        auto deleteTerms = Prepare("DELETE FROM term_frequencies WHERE document_id = ?1;");
         BindInt64(deleteTerms.get(), 1, ToSqlInt(id));
         StepDone(deleteTerms.get(), "delete existing term frequencies");
 
@@ -472,10 +457,10 @@ private:
     // index_version mirrors the in-memory adapter: every successful store mutation increments once.
     void AdjustStoreState(const sqlite3_int64 tokenDelta, const sqlite3_int64 versionDelta)
     {
-        auto statement = Prepare(
-            "UPDATE store_state "
-            "SET total_tokens = total_tokens + ?1, index_version = index_version + ?2 "
-            "WHERE singleton = 1;");
+        auto statement =
+            Prepare("UPDATE store_state "
+                    "SET total_tokens = total_tokens + ?1, index_version = index_version + ?2 "
+                    "WHERE singleton = 1;");
         BindInt64(statement.get(), 1, tokenDelta);
         BindInt64(statement.get(), 2, versionDelta);
         StepDone(statement.get(), "update store state");
