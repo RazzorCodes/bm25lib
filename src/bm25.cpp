@@ -48,8 +48,16 @@ Bm25::Query(const std::string_view query, const Bm25Params params) const
     }
 
     const auto stats = store->Stats();
-    const auto docFreqs = store->DocumentFrequencies();
     const auto postings = store->FetchPostings(termList);
+
+    Core::DocFrequencyMap docFreqs;
+    for (const auto &[docId, doc] : postings)
+    {
+        for (const auto &[term, freq] : doc.termFrequencies)
+        {
+            ++docFreqs[term];
+        }
+    }
 
     auto scored = Core::ScoreQuery(queryTerms, postings, stats, docFreqs, params);
     if (!scored)

@@ -2,3 +2,6 @@
 /build*
 !.clang-format
 !.clang-tidy
+!.clangd
+!.coralforge.yml
+*.log

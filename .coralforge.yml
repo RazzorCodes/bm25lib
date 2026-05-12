@@ -1,0 +1,52 @@
+version: 1
+repo:
+  name: bm25
+  owner: RazzorCodes
+  repo: bm25
+
+providers:
+  drone:
+    kind: drone
+    endpoint: http://drone.kube-ex.svc.cluster.local
+    owner: RazzorCodes
+    repo: bm25
+    auth:
+      token:
+        secretRef:
+          namespace: ci
+          name: drone-token
+          key: value
+      github_token:
+        secretRef:
+          namespace: github
+          name: coralforge-bm25-pat
+          key: github_token
+
+run_types:
+  ci:
+    default_provider: drone
+    provider_target:
+      pipeline: bm25-ci
+    trigger:
+      mode: automatic
+      branches: [main, "release/*"]
+    stages:
+      - name: configure
+        provider: drone
+        target: {pipeline: bm25-ci, step: configure}
+        runner: docker
+      - name: build
+        provider: drone
+        target: {pipeline: bm25-ci, step: build}
+        depends_on: [configure]
+        runner: docker
+      - name: test
+        provider: drone
+        target: {pipeline: bm25-ci, step: test}
+        depends_on: [build]
+        runner: docker
+      - name: lint
+        provider: drone
+        target: {pipeline: bm25-ci, step: lint}
+        depends_on: [build]
+        runner: docker
