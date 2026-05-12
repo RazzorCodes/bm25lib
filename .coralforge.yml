@@ -13,8 +13,8 @@ providers:
     auth:
       token:
         secretRef:
-          namespace: ci
-          name: drone-token
+          namespace: drone
+          name: token
           key: value
       github_token:
         secretRef:
