@@ -12,6 +12,7 @@ namespace Store
 class IAdapter
 {
 public:
+    IAdapter() = default;
     virtual ~IAdapter() = default;
 
     IAdapter(const IAdapter &) = delete;
