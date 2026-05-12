@@ -16,7 +16,10 @@ steps:
     commands:
       - apt-get update
       - apt-get install -y --no-install-recommends ca-certificates curl git zip unzip tar pkg-config ninja-build cmake make
-      - if [ ! -d "$VCPKG_ROOT/.git" ]; then git clone --depth=1 https://github.com/microsoft/vcpkg.git "$VCPKG_ROOT"; fi
+      - |
+        if [ ! -d "$VCPKG_ROOT/.git" ]; then
+          git clone --depth=1 https://github.com/microsoft/vcpkg.git "$VCPKG_ROOT"
+        fi
       - "$VCPKG_ROOT/bootstrap-vcpkg.sh" -disableMetrics
 
   - name: build
@@ -27,7 +30,10 @@ steps:
     commands:
       - apt-get update
       - apt-get install -y --no-install-recommends ca-certificates curl git zip unzip tar pkg-config ninja-build cmake make
-      - if [ ! -x "$VCPKG_ROOT/vcpkg" ]; then "$VCPKG_ROOT/bootstrap-vcpkg.sh" -disableMetrics; fi
+      - |
+        if [ ! -x "$VCPKG_ROOT/vcpkg" ]; then
+          "$VCPKG_ROOT/bootstrap-vcpkg.sh" -disableMetrics
+        fi
       - make build
     depends_on: [configure]
 
@@ -39,7 +45,10 @@ steps:
     commands:
       - apt-get update
       - apt-get install -y --no-install-recommends ca-certificates curl git zip unzip tar pkg-config ninja-build cmake make
-      - if [ ! -x "$VCPKG_ROOT/vcpkg" ]; then "$VCPKG_ROOT/bootstrap-vcpkg.sh" -disableMetrics; fi
+      - |
+        if [ ! -x "$VCPKG_ROOT/vcpkg" ]; then
+          "$VCPKG_ROOT/bootstrap-vcpkg.sh" -disableMetrics
+        fi
       - make test
     depends_on: [build]
 
@@ -51,6 +60,9 @@ steps:
     commands:
       - apt-get update
       - apt-get install -y --no-install-recommends ca-certificates curl git zip unzip tar pkg-config ninja-build cmake make clang-tidy clang-format
-      - if [ ! -x "$VCPKG_ROOT/vcpkg" ]; then "$VCPKG_ROOT/bootstrap-vcpkg.sh" -disableMetrics; fi
+      - |
+        if [ ! -x "$VCPKG_ROOT/vcpkg" ]; then
+          "$VCPKG_ROOT/bootstrap-vcpkg.sh" -disableMetrics
+        fi
       - make lint
     depends_on: [build]
