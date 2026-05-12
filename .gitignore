@@ -1,7 +1,8 @@
-.*
+.plans/*
 /build*
 !.clang-format
 !.clang-tidy
 !.clangd
 !.coralforge.yml
+!.drone.yml
 *.log
