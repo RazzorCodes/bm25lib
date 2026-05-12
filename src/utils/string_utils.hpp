@@ -11,11 +11,11 @@ static constexpr auto characters()
 
     for (auto c = 'a'; c <= 'z'; c++)
     {
-        chrs[c] = true;
+        chrs.at(static_cast<unsigned char>(c)) = true;
     }
     for (auto c = '0'; c <= '9'; c++)
     {
-        chrs[c] = true;
+        chrs.at(static_cast<unsigned char>(c)) = true;
     }
 
     return chrs;
@@ -30,7 +30,7 @@ static constexpr bool is_delimiter(const unsigned char chr)
         return false;
     }
 
-    if (kCharacters[chr])
+    if (kCharacters.at(chr))
     {
         return false;
     }
@@ -44,11 +44,11 @@ static constexpr auto lower()
 
     for (auto c = 0; c <= 255; c++)
     {
-        chrs[c] = static_cast<char>(c);
+        chrs.at(static_cast<unsigned char>(c)) = static_cast<char>(c);
     }
     for (auto c = 'A'; c <= 'Z'; c++)
     {
-        chrs[c] = static_cast<char>(c + ('a' - 'A'));
+        chrs.at(static_cast<unsigned char>(c)) = static_cast<char>(c + ('a' - 'A'));
     }
 
     return chrs;
@@ -63,7 +63,7 @@ inline void tokenize(std::string_view text, const std::function<void(std::string
 
     for (const char c : text)
     {
-        const auto normalized = kLower[static_cast<unsigned char>(c)];
+        const auto normalized = kLower.at(static_cast<unsigned char>(c));
 
         if (is_delimiter(static_cast<unsigned char>(normalized)))
         {

@@ -21,14 +21,14 @@ using DocFrequencyMap = std::unordered_map<std::string, std::size_t>;
 // Fatal — internal invariant violated; the adapter is in an undefined state.
 //   InternalError: reserved for storage-backed adapters (Milestone 1+).
 //   Not reachable with the in-memory adapter.
-enum class Bm25Error
+enum class Bm25Error : std::uint8_t
 {
     InvalidParams,
     InternalError,
 };
 
 // Outcome of a write (insert or update) operation.
-enum class WriteOutcome
+enum class WriteOutcome : std::uint8_t
 {
     Inserted, // key was new; a fresh DocumentId was assigned
     Updated,  // key already existed; the document was replaced in-place

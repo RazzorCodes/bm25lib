@@ -14,6 +14,11 @@ class IAdapter
 public:
     virtual ~IAdapter() = default;
 
+    IAdapter(const IAdapter &) = delete;
+    IAdapter &operator=(const IAdapter &) = delete;
+    IAdapter(IAdapter &&) = delete;
+    IAdapter &operator=(IAdapter &&) = delete;
+
     // Upsert by caller-supplied key.
     //   - New key: creates a new document, returns WriteOutcome::Inserted.
     //   - Existing key: replaces the stored document, returns WriteOutcome::Updated.
