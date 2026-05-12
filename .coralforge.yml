@@ -2,14 +2,14 @@ version: 1
 repo:
   name: bm25
   owner: RazzorCodes
-  repo: bm25
+  repo: bm25lib
 
 providers:
   drone:
     kind: drone
     endpoint: http://drone.kube-ex.svc.cluster.local
     owner: RazzorCodes
-    repo: bm25
+    repo: bm25lib
     auth:
       token:
         secretRef:
