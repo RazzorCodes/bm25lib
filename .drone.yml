@@ -14,13 +14,15 @@ trigger:
 
 steps:
   - name: build
-    image: gcc:13
+    image: ubuntu:24.04
     environment:
       VCPKG_ROOT: /drone/src/.vcpkg
       BUILD_DIR: build
+      DEBIAN_FRONTEND: noninteractive
     commands:
       - apt-get update
-      - apt-get install -y --no-install-recommends ca-certificates curl git zip unzip tar pkg-config ninja-build cmake make
+      - apt-get install -y --no-install-recommends ca-certificates curl git zip unzip tar pkg-config ninja-build cmake make gcc-13 g++-13
+      - update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-13 100 --slave /usr/bin/g++ g++ /usr/bin/g++-13
       - |
         if [ ! -d "$VCPKG_ROOT/.git" ]; then
           git clone --depth=1 https://github.com/microsoft/vcpkg.git "$VCPKG_ROOT"
@@ -32,13 +34,15 @@ steps:
       - make build
 
   - name: test
-    image: gcc:13
+    image: ubuntu:24.04
     environment:
       VCPKG_ROOT: /drone/src/.vcpkg
       BUILD_DIR: build
+      DEBIAN_FRONTEND: noninteractive
     commands:
       - apt-get update
-      - apt-get install -y --no-install-recommends ca-certificates curl git zip unzip tar pkg-config ninja-build cmake make
+      - apt-get install -y --no-install-recommends ca-certificates curl git zip unzip tar pkg-config ninja-build cmake make gcc-13 g++-13
+      - update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-13 100 --slave /usr/bin/g++ g++ /usr/bin/g++-13
       - |
         if [ ! -x "$VCPKG_ROOT/vcpkg" ]; then
           "$VCPKG_ROOT/bootstrap-vcpkg.sh" -disableMetrics
@@ -47,13 +51,15 @@ steps:
     depends_on: [build]
 
   - name: lint
-    image: gcc:13
+    image: ubuntu:24.04
     environment:
       VCPKG_ROOT: /drone/src/.vcpkg
       BUILD_DIR: build
+      DEBIAN_FRONTEND: noninteractive
     commands:
       - apt-get update
-      - apt-get install -y --no-install-recommends ca-certificates curl git zip unzip tar pkg-config ninja-build cmake make clang-tidy clang-format
+      - apt-get install -y --no-install-recommends ca-certificates curl git zip unzip tar pkg-config ninja-build cmake make clang-tidy clang-format gcc-13 g++-13
+      - update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-13 100 --slave /usr/bin/g++ g++ /usr/bin/g++-13
       - |
         if [ ! -x "$VCPKG_ROOT/vcpkg" ]; then
           "$VCPKG_ROOT/bootstrap-vcpkg.sh" -disableMetrics
@@ -76,11 +82,12 @@ trigger:
 
 steps:
   - name: release
-    image: gcc:13
+    image: ubuntu:24.04
     environment:
       GITHUB_TOKEN:
         from_secret: github_token
       GITHUB_REPO: RazzorCodes/bm25lib
+      DEBIAN_FRONTEND: noninteractive
     commands:
       - apt-get update
       - apt-get install -y --no-install-recommends ca-certificates curl git jq
@@ -149,11 +156,12 @@ trigger:
 
 steps:
   - name: stable
-    image: gcc:13
+    image: ubuntu:24.04
     environment:
       GITHUB_TOKEN:
         from_secret: github_token
       GITHUB_REPO: RazzorCodes/bm25lib
+      DEBIAN_FRONTEND: noninteractive
     commands:
       - apt-get update
       - apt-get install -y --no-install-recommends ca-certificates curl git jq
