@@ -31,14 +31,9 @@ run_types:
       mode: automatic
       branches: [main, "release/*"]
     stages:
-      - name: configure
-        provider: drone
-        target: {pipeline: bm25-ci, step: configure}
-        runner: docker
       - name: build
         provider: drone
         target: {pipeline: bm25-ci, step: build}
-        depends_on: [configure]
         runner: docker
       - name: test
         provider: drone
@@ -50,3 +45,29 @@ run_types:
         target: {pipeline: bm25-ci, step: lint}
         depends_on: [build]
         runner: docker
+
+  release:
+    default_provider: drone
+    provider_target:
+      pipeline: bm25-release
+    trigger:
+      mode: manual
+    stages:
+      - name: release
+        provider: drone
+        target: {pipeline: bm25-release, step: release}
+        runner: docker
+    depends_on: [ci]
+
+  stable:
+    default_provider: drone
+    provider_target:
+      pipeline: bm25-stable
+    trigger:
+      mode: manual
+    stages:
+      - name: stable
+        provider: drone
+        target: {pipeline: bm25-stable, step: stable}
+        runner: docker
+    depends_on: [release]

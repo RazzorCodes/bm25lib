@@ -7,22 +7,11 @@ trigger:
     include:
       - main
       - "release/*"
+  event:
+    include:
+      - push
 
 steps:
-  - name: configure
-    image: gcc:13
-    environment:
-      VCPKG_ROOT: /drone/src/.vcpkg
-    commands:
-      - apt-get update
-      - apt-get install -y --no-install-recommends ca-certificates curl git zip unzip tar pkg-config ninja-build cmake make
-      - |
-        if [ ! -d "$VCPKG_ROOT/.git" ]; then
-          git clone --depth=1 https://github.com/microsoft/vcpkg.git "$VCPKG_ROOT"
-        fi
-      - |
-        "$VCPKG_ROOT/bootstrap-vcpkg.sh" -disableMetrics
-
   - name: build
     image: gcc:13
     environment:
@@ -32,11 +21,14 @@ steps:
       - apt-get update
       - apt-get install -y --no-install-recommends ca-certificates curl git zip unzip tar pkg-config ninja-build cmake make
       - |
+        if [ ! -d "$VCPKG_ROOT/.git" ]; then
+          git clone --depth=1 https://github.com/microsoft/vcpkg.git "$VCPKG_ROOT"
+        fi
+      - |
         if [ ! -x "$VCPKG_ROOT/vcpkg" ]; then
           "$VCPKG_ROOT/bootstrap-vcpkg.sh" -disableMetrics
         fi
       - make build
-    depends_on: [configure]
 
   - name: test
     image: gcc:13
@@ -67,3 +59,153 @@ steps:
         fi
       - make lint
     depends_on: [build]
+
+---
+kind: pipeline
+type: docker
+name: bm25-release
+
+trigger:
+  event:
+    include:
+      - tag
+  ref:
+    include:
+      - refs/tags/release-*
+
+steps:
+  - name: release
+    image: gcc:13
+    environment:
+      GITHUB_TOKEN:
+        from_secret: github_token
+      GITHUB_REPO: RazzorCodes/bm25lib
+    commands:
+      - apt-get update
+      - apt-get install -y --no-install-recommends ca-certificates curl git jq
+      - |
+        set -euo pipefail
+
+        VERSION="${DRONE_TAG#release-}"
+        if ! echo "$VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$'; then
+          echo "Invalid release tag '$DRONE_TAG'. Expected release-X.Y.Z."
+          exit 1
+        fi
+
+        STATE=$(curl -sf "https://api.github.com/repos/$GITHUB_REPO/commits/$DRONE_COMMIT_SHA/status" \
+          -H "Accept: application/vnd.github+json" \
+          -H "Authorization: Bearer $GITHUB_TOKEN" \
+          | jq -r '.state')
+        if [ "$STATE" != "success" ]; then
+          echo "Commit $DRONE_COMMIT_SHA does not have a successful CI status."
+          exit 1
+        fi
+
+        RELEASE_TAG="v$VERSION"
+        API="https://api.github.com/repos/$GITHUB_REPO"
+
+        git config user.name "drone-ci"
+        git config user.email "drone-ci@users.noreply.github.com"
+        git fetch --tags origin
+        git tag -f "$RELEASE_TAG" "$DRONE_COMMIT_SHA"
+        git remote set-url origin "https://x-access-token:$GITHUB_TOKEN@github.com/$GITHUB_REPO.git"
+        git push --force origin "refs/tags/$RELEASE_TAG"
+
+        RELEASE_LOOKUP_CODE=$(curl -sS -o /tmp/release_lookup.json -w "%{http_code}" \
+          "https://api.github.com/repos/$GITHUB_REPO/releases/tags/$RELEASE_TAG" \
+          -H "Accept: application/vnd.github+json" \
+          -H "Authorization: Bearer $GITHUB_TOKEN")
+
+        if [ "$RELEASE_LOOKUP_CODE" = "200" ]; then
+          RELEASE_ID=$(jq -r '.id' /tmp/release_lookup.json)
+          curl -sf -X PATCH "$API/releases/$RELEASE_ID" \
+            -H "Accept: application/vnd.github+json" \
+            -H "Authorization: Bearer $GITHUB_TOKEN" \
+            -d "{\"tag_name\":\"$RELEASE_TAG\",\"target_commitish\":\"$DRONE_COMMIT_SHA\",\"name\":\"$RELEASE_TAG\",\"body\":\"Release $RELEASE_TAG\",\"draft\":false,\"prerelease\":false}" >/dev/null
+        elif [ "$RELEASE_LOOKUP_CODE" = "404" ]; then
+          curl -sf -X POST "$API/releases" \
+            -H "Accept: application/vnd.github+json" \
+            -H "Authorization: Bearer $GITHUB_TOKEN" \
+            -d "{\"tag_name\":\"$RELEASE_TAG\",\"target_commitish\":\"$DRONE_COMMIT_SHA\",\"name\":\"$RELEASE_TAG\",\"body\":\"Release $RELEASE_TAG\",\"draft\":false,\"prerelease\":false}" >/dev/null
+        else
+          echo "Unexpected response while checking release tag $RELEASE_TAG (HTTP $RELEASE_LOOKUP_CODE)."
+          cat /tmp/release_lookup.json
+          exit 1
+        fi
+
+---
+kind: pipeline
+type: docker
+name: bm25-stable
+
+trigger:
+  event:
+    include:
+      - tag
+  ref:
+    include:
+      - refs/tags/stable-*
+
+steps:
+  - name: stable
+    image: gcc:13
+    environment:
+      GITHUB_TOKEN:
+        from_secret: github_token
+      GITHUB_REPO: RazzorCodes/bm25lib
+    commands:
+      - apt-get update
+      - apt-get install -y --no-install-recommends ca-certificates curl git jq
+      - |
+        set -euo pipefail
+
+        STABLE_VERSION="${DRONE_TAG#stable-}"
+        if ! echo "$STABLE_VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$'; then
+          echo "Invalid stable tag '$DRONE_TAG'. Expected stable-X.Y.Z."
+          exit 1
+        fi
+
+        RELEASE_TAG="v$STABLE_VERSION"
+        API="https://api.github.com/repos/$GITHUB_REPO"
+        RELEASE_LOOKUP_CODE=$(curl -sS -o /tmp/stable_release_lookup.json -w "%{http_code}" \
+          "$API/releases/tags/$RELEASE_TAG" \
+          -H "Accept: application/vnd.github+json" \
+          -H "Authorization: Bearer $GITHUB_TOKEN")
+        if [ "$RELEASE_LOOKUP_CODE" != "200" ]; then
+          echo "Version $RELEASE_TAG does not exist as a successful release."
+          cat /tmp/stable_release_lookup.json
+          exit 1
+        fi
+
+        git config user.name "drone-ci"
+        git config user.email "drone-ci@users.noreply.github.com"
+        git fetch --tags origin
+        STABLE_SHA=$(git rev-list -n 1 "$RELEASE_TAG")
+        if [ -z "$STABLE_SHA" ]; then
+          echo "Unable to resolve commit for $RELEASE_TAG."
+          exit 1
+        fi
+        git tag -f stable "$STABLE_SHA"
+        git remote set-url origin "https://x-access-token:$GITHUB_TOKEN@github.com/$GITHUB_REPO.git"
+        git push --force origin refs/tags/stable
+
+        STABLE_LOOKUP_CODE=$(curl -sS -o /tmp/stable_lookup.json -w "%{http_code}" \
+          "$API/releases/tags/stable" \
+          -H "Accept: application/vnd.github+json" \
+          -H "Authorization: Bearer $GITHUB_TOKEN")
+        if [ "$STABLE_LOOKUP_CODE" = "200" ]; then
+          STABLE_RELEASE_ID=$(jq -r '.id' /tmp/stable_lookup.json)
+          curl -sf -X PATCH "$API/releases/$STABLE_RELEASE_ID" \
+            -H "Accept: application/vnd.github+json" \
+            -H "Authorization: Bearer $GITHUB_TOKEN" \
+            -d "{\"tag_name\":\"stable\",\"target_commitish\":\"$STABLE_SHA\",\"name\":\"stable\",\"body\":\"Stable currently points to $RELEASE_TAG\",\"draft\":false,\"prerelease\":false}" >/dev/null
+        elif [ "$STABLE_LOOKUP_CODE" = "404" ]; then
+          curl -sf -X POST "$API/releases" \
+            -H "Accept: application/vnd.github+json" \
+            -H "Authorization: Bearer $GITHUB_TOKEN" \
+            -d "{\"tag_name\":\"stable\",\"target_commitish\":\"$STABLE_SHA\",\"name\":\"stable\",\"body\":\"Stable currently points to $RELEASE_TAG\",\"draft\":false,\"prerelease\":false}" >/dev/null
+        else
+          echo "Unexpected response while checking stable release (HTTP $STABLE_LOOKUP_CODE)."
+          cat /tmp/stable_lookup.json
+          exit 1
+        fi
