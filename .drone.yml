@@ -1,0 +1,34 @@
+kind: pipeline
+type: docker
+name: bm25-ci
+
+trigger:
+  branch:
+    include:
+      - main
+      - "release/*"
+
+steps:
+  - name: configure
+    image: python:3.12-slim
+    commands:
+      - pip install --quiet -r requirements.txt || true
+
+  - name: build
+    image: gcc:13
+    commands:
+      - cmake -B build -DCMAKE_BUILD_TYPE=Release
+      - cmake --build build --parallel
+    depends_on: [configure]
+
+  - name: test
+    image: gcc:13
+    commands:
+      - cd build && ctest --output-on-failure
+    depends_on: [build]
+
+  - name: lint
+    image: silkeh/clang:17
+    commands:
+      - find src -name "*.cpp" -exec clang-tidy {} -- -Isrc \;
+    depends_on: [build]
