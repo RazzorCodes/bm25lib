@@ -20,7 +20,8 @@ steps:
         if [ ! -d "$VCPKG_ROOT/.git" ]; then
           git clone --depth=1 https://github.com/microsoft/vcpkg.git "$VCPKG_ROOT"
         fi
-      - "$VCPKG_ROOT/bootstrap-vcpkg.sh" -disableMetrics
+      - |
+        "$VCPKG_ROOT/bootstrap-vcpkg.sh" -disableMetrics
 
   - name: build
     image: gcc:13
