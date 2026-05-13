@@ -50,6 +50,7 @@ run_types:
     default_provider: drone
     provider_target:
       pipeline: bm25-release
+      tag_prefix: release-
     trigger:
       mode: manual
     stages:
@@ -63,6 +64,7 @@ run_types:
     default_provider: drone
     provider_target:
       pipeline: bm25-stable
+      tag_prefix: stable-
     trigger:
       mode: manual
     stages:

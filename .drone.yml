@@ -10,7 +10,6 @@ trigger:
   event:
     include:
       - push
-      - custom
 
 steps:
   - name: build
@@ -83,8 +82,8 @@ name: bm25-release
 trigger:
   event:
     include:
-      - tag
-  ref:
+      - custom
+  target:
     include:
       - refs/tags/release-*
 
@@ -102,9 +101,10 @@ steps:
       - |
         set -euo pipefail
 
-        VERSION="${DRONE_TAG#release-}"
+        _TAG="${DRONE_TAG:-${DRONE_TARGET#refs/tags/}}"
+        VERSION="${_TAG#release-}"
         if ! echo "$VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$'; then
-          echo "Invalid release tag '$DRONE_TAG'. Expected release-X.Y.Z."
+          echo "Invalid ref '${DRONE_COMMIT_REF}'. Expected refs/tags/release-X.Y.Z."
           exit 1
         fi
 
@@ -157,8 +157,8 @@ name: bm25-stable
 trigger:
   event:
     include:
-      - tag
-  ref:
+      - custom
+  target:
     include:
       - refs/tags/stable-*
 
@@ -176,9 +176,10 @@ steps:
       - |
         set -euo pipefail
 
-        STABLE_VERSION="${DRONE_TAG#stable-}"
+        _TAG="${DRONE_TAG:-${DRONE_TARGET#refs/tags/}}"
+        STABLE_VERSION="${_TAG#stable-}"
         if ! echo "$STABLE_VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$'; then
-          echo "Invalid stable tag '$DRONE_TAG'. Expected stable-X.Y.Z."
+          echo "Invalid ref '${DRONE_TARGET}'. Expected refs/tags/stable-X.Y.Z."
           exit 1
         fi
 
