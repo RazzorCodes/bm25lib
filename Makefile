@@ -1,4 +1,4 @@
-.PHONY: clean configure build test lint analyze fix
+.PHONY: clean configure build test lint analyze fix devci
 
 CMAKE ?= cmake
 CTEST ?= ctest
@@ -34,7 +34,14 @@ lint: configure
 	@echo "Checking formatting..."
 	clang-format --dry-run --Werror $(ALL_FILES)
 	@echo "Running clang-tidy..."
-	clang-tidy $(CPP_FILES) -p $(BUILD_DIR) --quiet
+	clang-tidy $(CPP_FILES) -p $(BUILD_DIR) --quiet --extra-arg=--gcc-toolchain=/usr
+
+# DEVCI: Run build, test, and lint
+# --security-opt seccomp=unconfined: rootless Podman's default seccomp profile blocks
+# syscalls (mknod, setcap) that Ubuntu 24.04 dpkg postinst scripts require. This lifts
+# that filter for the build; the container is ephemeral so the risk is acceptable.
+devci:
+	podman build --network=host --security-opt seccomp=unconfined --target bm25-devci-full -f containerfiles/dev-ci .
 
 # ANALYZE: Deep static analysis using scan-build
 analyze: clean
@@ -50,7 +57,7 @@ fix: configure
 	@echo "Applying clang-format fixes..."
 	clang-format -i $(ALL_FILES)
 	@echo "Applying clang-tidy fixes..."
-	clang-tidy $(CPP_FILES) -p $(BUILD_DIR) --fix --fix-errors --quiet
+	clang-tidy $(CPP_FILES) -p $(BUILD_DIR) --fix --fix-errors --quiet --extra-arg=--gcc-toolchain=/usr
 
 clean:
 	rm -rf $(BUILD_DIR)

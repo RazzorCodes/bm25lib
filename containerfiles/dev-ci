@@ -1,0 +1,71 @@
+# Stage 1: Base image with all tools and vcpkg
+FROM ubuntu:24.04 as bm25-devci-base
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Bootstrap: tools needed to add third-party repos
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+    ca-certificates curl gnupg software-properties-common \
+    && rm -rf /var/lib/apt/lists/*
+
+# GCC 15 — ubuntu-toolchain-r PPA (default Ubuntu 24.04 tops out at GCC 13)
+RUN add-apt-repository -y ppa:ubuntu-toolchain-r/test && \
+    apt-get install -y --no-install-recommends gcc-15 g++-15 && \
+    update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-15 100 \
+        --slave /usr/bin/g++ g++ /usr/bin/g++-15 && \
+    rm -rf /var/lib/apt/lists/*
+
+# Clang 21 — LLVM apt (Ubuntu 24.04 ships Clang 18)
+RUN curl -fsSL https://apt.llvm.org/llvm-snapshot.gpg.key \
+        | gpg --dearmor -o /etc/apt/trusted.gpg.d/llvm.gpg && \
+    echo "deb http://apt.llvm.org/noble/ llvm-toolchain-noble-21 main" \
+        > /etc/apt/sources.list.d/llvm.list && \
+    apt-get update && \
+    apt-get install -y --no-install-recommends clang-tidy-21 clang-format-21 && \
+    ln -sf /usr/bin/clang-tidy-21 /usr/local/bin/clang-tidy && \
+    ln -sf /usr/bin/clang-format-21 /usr/local/bin/clang-format && \
+    rm -rf /var/lib/apt/lists/*
+
+# CMake 3.31.11 — binary from upstream (Ubuntu 24.04 ships 3.28)
+RUN curl -fsSL https://github.com/Kitware/CMake/releases/download/v3.31.11/cmake-3.31.11-linux-x86_64.sh \
+        -o /tmp/cmake.sh && \
+    sh /tmp/cmake.sh --prefix=/usr/local --skip-license --exclude-subdir && \
+    rm /tmp/cmake.sh
+
+# Remaining build tools
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+    git zip unzip tar pkg-config ninja-build make \
+    && apt-get clean && rm -rf /var/lib/apt/lists/*
+
+# Install vcpkg
+ENV VCPKG_ROOT=/opt/vcpkg
+RUN git clone --depth=1 https://github.com/microsoft/vcpkg.git "$VCPKG_ROOT" && \
+    "$VCPKG_ROOT/bootstrap-vcpkg.sh" -disableMetrics
+
+ENV BUILD_DIR=build
+WORKDIR /workspace
+
+# Pre-install vcpkg dependencies to cache them
+# We COPY only vcpkg.json first to avoid re-installing on every source change
+COPY vcpkg.json .
+RUN "$VCPKG_ROOT/vcpkg" install --triplet x64-linux
+
+# Stage 2: Build the project
+FROM bm25-devci-base as bm25-devci-build
+COPY . .
+RUN make build
+
+# Stage 3: Run tests
+FROM bm25-devci-build as bm25-devci-test
+RUN make test
+
+# Stage 4: Run lint
+FROM bm25-devci-build as bm25-devci-lint
+RUN make lint
+
+FROM bm25-devci-build as bm25-devci-full
+RUN make build
+RUN make test
+RUN make lint

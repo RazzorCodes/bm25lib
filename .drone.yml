@@ -20,9 +20,11 @@ steps:
       BUILD_DIR: build
       DEBIAN_FRONTEND: noninteractive
     commands:
-      - apt-get update
-      - apt-get install -y --no-install-recommends ca-certificates curl git zip unzip tar pkg-config ninja-build cmake make gcc-13 g++-13
-      - update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-13 100 --slave /usr/bin/g++ g++ /usr/bin/g++-13
+      - apt-get update && apt-get install -y --no-install-recommends ca-certificates curl gnupg software-properties-common
+      - add-apt-repository -y ppa:ubuntu-toolchain-r/test && apt-get install -y --no-install-recommends gcc-15 g++-15
+      - update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-15 100 --slave /usr/bin/g++ g++ /usr/bin/g++-15
+      - curl -fsSL https://github.com/Kitware/CMake/releases/download/v3.31.11/cmake-3.31.11-linux-x86_64.sh -o /tmp/cmake.sh && sh /tmp/cmake.sh --prefix=/usr/local --skip-license --exclude-subdir && rm /tmp/cmake.sh
+      - apt-get update && apt-get install -y --no-install-recommends git zip unzip tar pkg-config ninja-build make && rm -rf /var/lib/apt/lists/*
       - |
         if [ ! -d "$VCPKG_ROOT/.git" ]; then
           git clone --depth=1 https://github.com/microsoft/vcpkg.git "$VCPKG_ROOT"
@@ -40,9 +42,11 @@ steps:
       BUILD_DIR: build
       DEBIAN_FRONTEND: noninteractive
     commands:
-      - apt-get update
-      - apt-get install -y --no-install-recommends ca-certificates curl git zip unzip tar pkg-config ninja-build cmake make gcc-13 g++-13
-      - update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-13 100 --slave /usr/bin/g++ g++ /usr/bin/g++-13
+      - apt-get update && apt-get install -y --no-install-recommends ca-certificates curl gnupg software-properties-common
+      - add-apt-repository -y ppa:ubuntu-toolchain-r/test && apt-get install -y --no-install-recommends gcc-15 g++-15
+      - update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-15 100 --slave /usr/bin/g++ g++ /usr/bin/g++-15
+      - curl -fsSL https://github.com/Kitware/CMake/releases/download/v3.31.11/cmake-3.31.11-linux-x86_64.sh -o /tmp/cmake.sh && sh /tmp/cmake.sh --prefix=/usr/local --skip-license --exclude-subdir && rm /tmp/cmake.sh
+      - apt-get update && apt-get install -y --no-install-recommends git zip unzip tar pkg-config ninja-build make && rm -rf /var/lib/apt/lists/*
       - |
         if [ ! -x "$VCPKG_ROOT/vcpkg" ]; then
           "$VCPKG_ROOT/bootstrap-vcpkg.sh" -disableMetrics
@@ -57,9 +61,13 @@ steps:
       BUILD_DIR: build
       DEBIAN_FRONTEND: noninteractive
     commands:
-      - apt-get update
-      - apt-get install -y --no-install-recommends ca-certificates curl git zip unzip tar pkg-config ninja-build cmake make clang-tidy clang-format gcc-13 g++-13
-      - update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-13 100 --slave /usr/bin/g++ g++ /usr/bin/g++-13
+      - apt-get update && apt-get install -y --no-install-recommends ca-certificates curl gnupg software-properties-common
+      - add-apt-repository -y ppa:ubuntu-toolchain-r/test && apt-get install -y --no-install-recommends gcc-15 g++-15
+      - update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-15 100 --slave /usr/bin/g++ g++ /usr/bin/g++-15
+      - curl -fsSL https://apt.llvm.org/llvm-snapshot.gpg.key | gpg --dearmor -o /etc/apt/trusted.gpg.d/llvm.gpg && echo "deb http://apt.llvm.org/noble/ llvm-toolchain-noble-21 main" > /etc/apt/sources.list.d/llvm.list && apt-get update && apt-get install -y --no-install-recommends clang-tidy-21 clang-format-21
+      - ln -sf /usr/bin/clang-tidy-21 /usr/local/bin/clang-tidy && ln -sf /usr/bin/clang-format-21 /usr/local/bin/clang-format
+      - curl -fsSL https://github.com/Kitware/CMake/releases/download/v3.31.11/cmake-3.31.11-linux-x86_64.sh -o /tmp/cmake.sh && sh /tmp/cmake.sh --prefix=/usr/local --skip-license --exclude-subdir && rm /tmp/cmake.sh
+      - apt-get update && apt-get install -y --no-install-recommends git zip unzip tar pkg-config ninja-build make && rm -rf /var/lib/apt/lists/*
       - |
         if [ ! -x "$VCPKG_ROOT/vcpkg" ]; then
           "$VCPKG_ROOT/bootstrap-vcpkg.sh" -disableMetrics
