@@ -82,7 +82,7 @@ name: bm25-release
 trigger:
   event:
     include:
-      - promote
+      - custom
   target:
     include:
       - refs/tags/release-*
@@ -157,7 +157,7 @@ name: bm25-stable
 trigger:
   event:
     include:
-      - promote
+      - custom
   target:
     include:
       - refs/tags/stable-*
