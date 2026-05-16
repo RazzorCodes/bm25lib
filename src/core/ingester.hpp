@@ -4,7 +4,7 @@
 
 #include "core/types.hpp"
 
-namespace Core
+namespace bm25::Core
 {
 [[nodiscard]] IngestResult Ingest(std::string_view text);
-} // namespace Core
+} // namespace bm25::Core

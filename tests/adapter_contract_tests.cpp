@@ -8,14 +8,14 @@
 #include "store/sqlite.hpp"
 
 // Contract parity: the same logical behaviour must hold for every IAdapter implementation.
-// Tests run identically against Store::InMemory and Store::Sqlite.
+// Tests run identically against bm25::Store::InMemory and bm25::Store::Sqlite.
 
 template <typename Adapter>
 class AdapterContractTests : public ::testing::Test
 {
 };
 
-using AdapterTypes = ::testing::Types<Store::InMemory, Store::Sqlite>;
+using AdapterTypes = ::testing::Types<bm25::Store::InMemory, bm25::Store::Sqlite>;
 TYPED_TEST_SUITE(AdapterContractTests, AdapterTypes);
 
 TYPED_TEST(AdapterContractTests, UpsertNewKeyReturnsInserted)
@@ -173,7 +173,7 @@ TYPED_TEST(AdapterContractTests, BM25ScoresMatchForIdenticalCorpusAndParams)
     };
     const bm25::Bm25Params params{1.2, 0.75};
 
-    Store::InMemory ref;
+    bm25::Store::InMemory ref;
     bm25::Bm25 refService(ref);
     for (const auto &[key, text] : corpus)
     {

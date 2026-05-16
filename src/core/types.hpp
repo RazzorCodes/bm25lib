@@ -6,7 +6,7 @@
 #include <unordered_map>
 #include <vector>
 
-namespace Core
+namespace bm25::Core
 {
 using DocumentId = std::size_t;
 using TermFrequency = std::size_t;
@@ -73,4 +73,4 @@ struct Bm25Params
         return k > 0.0 && b >= 0.0 && b <= 1.0;
     }
 };
-} // namespace Core
+} // namespace bm25::Core

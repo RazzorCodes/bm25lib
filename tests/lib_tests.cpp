@@ -18,7 +18,7 @@ static double scoreFor(const bm25::RankedResults &results, const bm25::DocumentI
 
 TEST(Bm25ServiceTests /*unused*/, IngestChunkCountsTotalTokensAndPerTermFrequency /*unused*/)
 {
-    Store::InMemory store;
+    bm25::Store::InMemory store;
     bm25::Bm25 service(store);
 
     (void)service.IngestChunk("k1", "The willy quick fox doesn't jump over the lazy brown dog.");
@@ -37,7 +37,7 @@ TEST(Bm25ServiceTests /*unused*/, IngestChunkCountsTotalTokensAndPerTermFrequenc
 
 TEST(Bm25ServiceTests /*unused*/, IngestChunkMergesRepeatedTokensAfterNormalization /*unused*/)
 {
-    Store::InMemory store;
+    bm25::Store::InMemory store;
     bm25::Bm25 service(store);
 
     (void)service.IngestChunk("k1", "Go go GO!");
@@ -51,7 +51,7 @@ TEST(Bm25ServiceTests /*unused*/, IngestChunkMergesRepeatedTokensAfterNormalizat
 
 TEST(Bm25ServiceTests /*unused*/, IngestChunkHandlesDelimiterOnlyInput /*unused*/)
 {
-    Store::InMemory store;
+    bm25::Store::InMemory store;
     bm25::Bm25 service(store);
 
     (void)service.IngestChunk("k1", "... ,,, ---");
@@ -68,7 +68,7 @@ TEST(Bm25ServiceTests /*unused*/, IngestChunkHandlesDelimiterOnlyInput /*unused*
 
 TEST(Bm25ServiceTests /*unused*/, IngestChunkReportsInsertedForNewKey /*unused*/)
 {
-    Store::InMemory store;
+    bm25::Store::InMemory store;
     bm25::Bm25 service(store);
 
     const auto result = service.IngestChunk("doc:a", "hello world");
@@ -77,7 +77,7 @@ TEST(Bm25ServiceTests /*unused*/, IngestChunkReportsInsertedForNewKey /*unused*/
 
 TEST(Bm25ServiceTests /*unused*/, IngestChunkReportsUpdatedForExistingKey /*unused*/)
 {
-    Store::InMemory store;
+    bm25::Store::InMemory store;
     bm25::Bm25 service(store);
 
     (void)service.IngestChunk("doc:a", "hello world");
@@ -88,7 +88,7 @@ TEST(Bm25ServiceTests /*unused*/, IngestChunkReportsUpdatedForExistingKey /*unus
 
 TEST(Bm25ServiceTests /*unused*/, SameKeyReturnsStableDocumentIdOnRepeatedIngest /*unused*/)
 {
-    Store::InMemory store;
+    bm25::Store::InMemory store;
     bm25::Bm25 service(store);
 
     const auto r1 = service.IngestChunk("doc:hello", "hello world");
@@ -101,7 +101,7 @@ TEST(Bm25ServiceTests /*unused*/, SameKeyReturnsStableDocumentIdOnRepeatedIngest
 
 TEST(Bm25ServiceTests /*unused*/, DifferentKeysAreIndependentDocumentsEvenWithIdenticalContent /*unused*/)
 {
-    Store::InMemory store;
+    bm25::Store::InMemory store;
     bm25::Bm25 service(store);
 
     const auto r1 = service.IngestChunk("key:a", "hello world");
@@ -116,7 +116,7 @@ TEST(Bm25ServiceTests /*unused*/, DifferentKeysAreIndependentDocumentsEvenWithId
 
 TEST(Bm25ServiceTests /*unused*/, UpdateByKeyReplacesContentAndCorrectlyUpdatesCorpusStats /*unused*/)
 {
-    Store::InMemory store;
+    bm25::Store::InMemory store;
     bm25::Bm25 service(store);
 
     const auto r1 = service.IngestChunk("doc:1", "cat cat dog");
@@ -137,7 +137,7 @@ TEST(Bm25ServiceTests /*unused*/, UpdateByKeyReplacesContentAndCorrectlyUpdatesC
 
 TEST(Bm25ServiceTests /*unused*/, IngestChunkTracksDocumentFrequencies /*unused*/)
 {
-    Store::InMemory store;
+    bm25::Store::InMemory store;
     bm25::Bm25 service(store);
 
     (void)service.IngestChunk("d0", "cat cat dog");
@@ -156,7 +156,7 @@ TEST(Bm25ServiceTests /*unused*/, IngestChunkTracksDocumentFrequencies /*unused*
 
 TEST(Bm25ServiceTests /*unused*/, DeleteDocumentReturnsTrueAndRemovesIt /*unused*/)
 {
-    Store::InMemory store;
+    bm25::Store::InMemory store;
     bm25::Bm25 service(store);
 
     (void)service.IngestChunk("d0", "cat cat dog");
@@ -174,7 +174,7 @@ TEST(Bm25ServiceTests /*unused*/, DeleteDocumentReturnsTrueAndRemovesIt /*unused
 
 TEST(Bm25ServiceTests /*unused*/, DeleteDocumentReturnsFalseForUnknownId /*unused*/)
 {
-    Store::InMemory store;
+    bm25::Store::InMemory store;
     bm25::Bm25 service(store);
 
     (void)service.IngestChunk("k1", "cat");
@@ -186,7 +186,7 @@ TEST(Bm25ServiceTests /*unused*/, DeleteDocumentReturnsFalseForUnknownId /*unuse
 
 TEST(Bm25ServiceTests /*unused*/, IndexVersionIncrementsOnEveryWrite /*unused*/)
 {
-    Store::InMemory store;
+    bm25::Store::InMemory store;
     bm25::Bm25 service(store);
 
     const auto v0 = service.Stats().indexVersion;
@@ -206,7 +206,7 @@ TEST(Bm25ServiceTests /*unused*/, IndexVersionIncrementsOnEveryWrite /*unused*/)
 
 TEST(Bm25ServiceTests /*unused*/, QueryReturnsExpectedBm25ScoresForSingleTerm /*unused*/)
 {
-    Store::InMemory store;
+    bm25::Store::InMemory store;
     bm25::Bm25 service(store);
 
     const auto id0 = service.IngestChunk("d0", "Cat cat dog").docId;
@@ -223,7 +223,7 @@ TEST(Bm25ServiceTests /*unused*/, QueryReturnsExpectedBm25ScoresForSingleTerm /*
 
 TEST(Bm25ServiceTests /*unused*/, QueryRanksDocumentsByCombinedTermMatches /*unused*/)
 {
-    Store::InMemory store;
+    bm25::Store::InMemory store;
     bm25::Bm25 service(store);
 
     const auto id0 = service.IngestChunk("d0", "Cat cat dog").docId;
@@ -239,7 +239,7 @@ TEST(Bm25ServiceTests /*unused*/, QueryRanksDocumentsByCombinedTermMatches /*unu
 
 TEST(Bm25ServiceTests /*unused*/, QueryReturnsEmptyForUnknownTerms /*unused*/)
 {
-    Store::InMemory store;
+    bm25::Store::InMemory store;
     bm25::Bm25 service(store);
 
     (void)service.IngestChunk("d0", "Cat cat dog");
@@ -252,7 +252,7 @@ TEST(Bm25ServiceTests /*unused*/, QueryReturnsEmptyForUnknownTerms /*unused*/)
 
 TEST(Bm25ServiceTests /*unused*/, QueryReturnsEmptyForDelimiterOnlyQuery /*unused*/)
 {
-    Store::InMemory store;
+    bm25::Store::InMemory store;
     bm25::Bm25 service(store);
 
     (void)service.IngestChunk("d0", "Cat cat dog");
@@ -265,7 +265,7 @@ TEST(Bm25ServiceTests /*unused*/, QueryReturnsEmptyForDelimiterOnlyQuery /*unuse
 
 TEST(Bm25ServiceTests /*unused*/, QueryReturnsEmptyForEmptyCorpus /*unused*/)
 {
-    Store::InMemory store;
+    bm25::Store::InMemory store;
     bm25::Bm25 service(store);
 
     const auto result = service.Query("cat", bm25::Bm25Params{1.2, 0.75});
@@ -275,7 +275,7 @@ TEST(Bm25ServiceTests /*unused*/, QueryReturnsEmptyForEmptyCorpus /*unused*/)
 
 TEST(Bm25ServiceTests /*unused*/, QueryTopKLimitsAndPreservesRanking /*unused*/)
 {
-    Store::InMemory store;
+    bm25::Store::InMemory store;
     bm25::Bm25 service(store);
 
     (void)service.IngestChunk("d0", "cat here");
@@ -294,7 +294,7 @@ TEST(Bm25ServiceTests /*unused*/, QueryTopKLimitsAndPreservesRanking /*unused*/)
 
 TEST(Bm25ServiceTests /*unused*/, QueryReturnsErrorForInvalidParams /*unused*/)
 {
-    Store::InMemory store;
+    bm25::Store::InMemory store;
     bm25::Bm25 service(store);
 
     (void)service.IngestChunk("d0", "cat cat");

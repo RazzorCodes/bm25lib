@@ -10,9 +10,9 @@
 #include "core/types.hpp"
 #include "store/adapter.hpp"
 
-namespace Store
+namespace bm25::Store
 {
-class InMemory final : public IAdapter
+class InMemory final : public Adapter
 {
 public:
     [[nodiscard]] Core::WriteResult UpsertDocument(const std::string_view key,

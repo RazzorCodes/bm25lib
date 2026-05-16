@@ -4,7 +4,7 @@
 
 #include "core/types.hpp"
 
-namespace Core
+namespace bm25::Core
 {
 [[nodiscard]] RankedResults RankScores(RankedResults scored, std::size_t topK = 0);
-} // namespace Core
+} // namespace bm25::Core

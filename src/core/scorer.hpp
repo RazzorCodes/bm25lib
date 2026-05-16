@@ -6,7 +6,7 @@
 
 #include "core/types.hpp"
 
-namespace Core
+namespace bm25::Core
 {
 // Internal: not part of the public API. Callers use bm25::Bm25::Query / QueryTopK.
 //
@@ -17,4 +17,4 @@ namespace Core
 ScoreQuery(const TermMap &queryTerms,
            const std::vector<std::pair<DocumentId, IngestResult>> &postings,
            const CorpusStats &stats, const DocFrequencyMap &docFrequencies, Bm25Params params = {});
-} // namespace Core
+} // namespace bm25::Core

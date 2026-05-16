@@ -2,7 +2,7 @@
 
 #include <algorithm>
 
-namespace Core
+namespace bm25::Core
 {
 RankedResults RankScores(RankedResults scored, const std::size_t topK)
 {
@@ -22,4 +22,4 @@ RankedResults RankScores(RankedResults scored, const std::size_t topK)
 
     return scored;
 }
-} // namespace Core
+} // namespace bm25::Core

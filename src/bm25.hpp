@@ -20,7 +20,7 @@ using CorpusStats = Core::CorpusStats;
 class Bm25
 {
 public:
-    explicit Bm25(Store::IAdapter &dataStore);
+    explicit Bm25(Store::Adapter &dataStore);
 
     // Upsert by caller-supplied key.
     //   - New key: inserts the document; result.outcome == WriteOutcome::Inserted.
@@ -48,6 +48,6 @@ public:
     QueryTopK(std::string_view query, std::size_t topK, Bm25Params params = {}) const;
 
 private:
-    Store::IAdapter *store;
+    Store::Adapter *store;
 };
 } // namespace bm25

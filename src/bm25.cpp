@@ -7,7 +7,7 @@
 
 namespace bm25
 {
-Bm25::Bm25(Store::IAdapter &dataStore) : store(&dataStore) {}
+Bm25::Bm25(Store::Adapter &dataStore) : store(&dataStore) {}
 
 WriteResult Bm25::IngestChunk(const std::string_view key, const std::string_view text)
 {

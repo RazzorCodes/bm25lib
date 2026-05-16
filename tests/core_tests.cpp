@@ -8,8 +8,8 @@
 
 TEST(CoreTests /*unused*/, RankScoresAppliesTopKAndStableTieBreakByDocId /*unused*/)
 {
-    const Core::RankedResults scored{{0, 0.3}, {1, 0.5}, {2, 0.5}, {3, 0.1}};
-    const auto ranked = Core::RankScores(scored, 2);
+    const bm25::Core::RankedResults scored{{0, 0.3}, {1, 0.5}, {2, 0.5}, {3, 0.1}};
+    const auto ranked = bm25::Core::RankScores(scored, 2);
 
     ASSERT_EQ(ranked.size(), 2U);
     EXPECT_EQ(ranked[0].docId, 1U);
@@ -20,28 +20,28 @@ TEST(CoreTests /*unused*/, RankScoresAppliesTopKAndStableTieBreakByDocId /*unuse
 
 TEST(CoreTests /*unused*/, ScoreQueryReturnsErrorWhenParamsAreInvalid /*unused*/)
 {
-    const Core::TermMap queryTerms{{"cat", 1}};
-    const std::vector<std::pair<Core::DocumentId, Core::IngestResult>> postings{
-        {42U, Core::IngestResult{2U, {{"cat", 2U}}}}};
-    const Core::CorpusStats stats{1U, 2U, 2.0, 0U};
-    const Core::DocFrequencyMap docFreqs{{"cat", 1U}};
+    const bm25::Core::TermMap queryTerms{{"cat", 1}};
+    const std::vector<std::pair<bm25::Core::DocumentId, bm25::Core::IngestResult>> postings{
+        {42U, bm25::Core::IngestResult{2U, {{"cat", 2U}}}}};
+    const bm25::Core::CorpusStats stats{1U, 2U, 2.0, 0U};
+    const bm25::Core::DocFrequencyMap docFreqs{{"cat", 1U}};
 
-    const auto result = Core::ScoreQuery(queryTerms, postings, stats, docFreqs,
-                                         Core::Bm25Params{0.0, 0.75});
+    const auto result = bm25::Core::ScoreQuery(queryTerms, postings, stats, docFreqs,
+                                         bm25::Core::Bm25Params{0.0, 0.75});
 
     ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error(), Core::Bm25Error::InvalidParams);
+    EXPECT_EQ(result.error(), bm25::Core::Bm25Error::InvalidParams);
 }
 
 TEST(CoreTests /*unused*/, ScoreQueryReturnsEmptyForEmptyQueryTerms /*unused*/)
 {
-    const Core::TermMap queryTerms{};
-    const std::vector<std::pair<Core::DocumentId, Core::IngestResult>> postings{
-        {42U, Core::IngestResult{2U, {{"cat", 2U}}}}};
-    const Core::CorpusStats stats{1U, 2U, 2.0, 0U};
-    const Core::DocFrequencyMap docFreqs{{"cat", 1U}};
+    const bm25::Core::TermMap queryTerms{};
+    const std::vector<std::pair<bm25::Core::DocumentId, bm25::Core::IngestResult>> postings{
+        {42U, bm25::Core::IngestResult{2U, {{"cat", 2U}}}}};
+    const bm25::Core::CorpusStats stats{1U, 2U, 2.0, 0U};
+    const bm25::Core::DocFrequencyMap docFreqs{{"cat", 1U}};
 
-    const auto result = Core::ScoreQuery(queryTerms, postings, stats, docFreqs);
+    const auto result = bm25::Core::ScoreQuery(queryTerms, postings, stats, docFreqs);
 
     ASSERT_TRUE(result.has_value());
     EXPECT_TRUE(result->empty());

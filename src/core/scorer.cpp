@@ -2,7 +2,7 @@
 
 #include <cmath>
 
-namespace Core
+namespace bm25::Core
 {
 std::expected<RankedResults, Bm25Error>
 ScoreQuery(const TermMap &queryTerms,
@@ -62,4 +62,4 @@ ScoreQuery(const TermMap &queryTerms,
 
     return scored;
 }
-} // namespace Core
+} // namespace bm25::Core

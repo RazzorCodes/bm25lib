@@ -4,7 +4,7 @@
 
 #include "utils/string_utils.hpp"
 
-namespace Core
+namespace bm25::Core
 {
 IngestResult Ingest(const std::string_view text)
 {
@@ -18,4 +18,4 @@ IngestResult Ingest(const std::string_view text)
 
     return {.tokenCount = tokenCount, .termFrequencies = std::move(termFrequencies)};
 }
-} // namespace Core
+} // namespace bm25::Core

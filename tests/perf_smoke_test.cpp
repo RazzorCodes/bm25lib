@@ -96,7 +96,7 @@ TEST(PerfSmokeTest, QueryLatencyDoesNotGrowLinearlyWithCorpusSize)
     TempDb largeDb("bm25_perf_large.db");
 
     {
-        Store::Sqlite smallStore(smallDb.path);
+        bm25::Store::Sqlite smallStore(smallDb.path);
         bm25::Bm25 smallService(smallStore);
         BuildCorpus(smallService, kSmallTotal, kAnchorDocs, kAnchorTerm);
 
@@ -111,7 +111,7 @@ TEST(PerfSmokeTest, QueryLatencyDoesNotGrowLinearlyWithCorpusSize)
         ASSERT_TRUE(check.has_value());
         ASSERT_FALSE(check->empty()) << "anchor term must appear in small corpus";
 
-        Store::Sqlite largeStore(largeDb.path);
+        bm25::Store::Sqlite largeStore(largeDb.path);
         bm25::Bm25 largeService(largeStore);
         BuildCorpus(largeService, kLargeTotal, kAnchorDocs, kAnchorTerm);
 
